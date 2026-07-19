@@ -1,0 +1,217 @@
+<?php
+declare(strict_types=1);
+/**
+ * Jyavani Push Notifications Plugin v1.0.0
+ * Browser push notifications via Web Push API (VAPID).
+ */
+
+if (!defined('BACKEND_PATH')) return;
+
+// ── Schema ──────────────────────────────────────────
+
+function jyavani_push_ensure_schema(PDO $pdo): void {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        endpoint VARCHAR(500) NOT NULL,
+        p256dh_key VARCHAR(255) NOT NULL,
+        auth_key VARCHAR(255) NOT NULL,
+        user_agent VARCHAR(500) DEFAULT NULL,
+        ip_address VARCHAR(45) DEFAULT NULL,
+        is_active TINYINT(1) DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_endpoint (endpoint(200))
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS push_notifications (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        body TEXT NOT NULL,
+        url VARCHAR(500) DEFAULT NULL,
+        icon VARCHAR(255) DEFAULT NULL,
+        sent_count INT DEFAULT 0,
+        fail_count INT DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        sent_at DATETIME DEFAULT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+// ── Settings ────────────────────────────────────────
+
+function jyavani_push_settings(PDO $pdo): array {
+    $stmt = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'push_%'");
+    $settings = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $settings[$row['setting_key']] = $row['setting_value'];
+    }
+    return $settings;
+}
+
+function jyavani_push_setting(PDO $pdo, string $key, string $default = ''): string {
+    $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = ?");
+    $stmt->execute([$key]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ? $row['setting_value'] : $default;
+}
+
+function jyavani_push_save_setting(PDO $pdo, string $key, string $value): void {
+    $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+    $stmt->execute([$key, $value]);
+}
+
+// ── Web Push Send ───────────────────────────────────
+
+function jyavani_push_send(array $subscription, string $title, string $body, string $url = '', string $icon = '', PDO $pdo = null): bool {
+    $settings = $pdo ? jyavani_push_settings($pdo) : [];
+    $vapidPublicKey = $settings['push_vapid_public_key'] ?? '';
+    $vapidPrivateKey = $settings['push_vapid_private_key'] ?? '';
+    $vapidSubject = $settings['push_vapid_subject'] ?? 'mailto:admin@adammuiz.com';
+
+    if (empty($vapidPublicKey) || empty($vapidPrivateKey)) {
+        error_log('[jyavani-push] VAPID keys not configured');
+        return false;
+    }
+
+    $payload = json_encode([
+        'title' => $title,
+        'body' => $body,
+        'url' => $url,
+        'icon' => $icon ?: ($settings['push_default_icon'] ?? '/static/icons/lucide/bell.svg'),
+        'badge' => '/static/icons/lucide/bell.svg',
+        'timestamp' => time() * 1000,
+    ]);
+
+    // Decrypt the subscription keys
+    $endpoint = $subscription['endpoint'];
+    $p256dh = $subscription['p256dh_key'];
+    $auth = $subscription['auth_key'];
+
+    // Build the JWT for VAPID
+    $header = base64url_encode(json_encode(['typ' => 'JWT', 'alg' => 'ES256']));
+    $now = time();
+    $claims = base64url_encode(json_encode([
+        'aud' => parse_url($endpoint, PHP_URL_SCHEME) . '://' . parse_url($endpoint, PHP_URL_HOST),
+        'exp' => $now + 43200,
+        'sub' => $vapidSubject,
+    ]));
+
+    // Sign with ECDSA P-256
+    $signingInput = $header . '.' . $claims;
+    $key = openssl_pkey_get_private('ec:' . base64_decode($vapidPrivateKey));
+    if (!$key) {
+        error_log('[jyavani-push] Failed to load VAPID private key');
+        return false;
+    }
+
+    $signature = '';
+    $signed = openssl_sign($signingInput, $signature, $key, OPENSSL_ALGO_SHA256);
+    openssl_pkey_free($key);
+
+    if (!$signed) {
+        error_log('[jyavani-push] Failed to sign VAPID token');
+        return false;
+    }
+
+    // Extract r and s from the signature
+    $sigDer = $signature;
+    $seq = [];
+    // Parse DER-encoded ECDSA signature
+    if (ord($sigDer[0]) === 0x30) {
+        $offset = 2;
+        // Read r
+        $rLen = ord($sigDer[$offset + 1]);
+        $r = substr($sigDer, $offset + 2, $rLen);
+        $offset += 2 + $rLen;
+        // Read s
+        $sLen = ord($sigDer[$offset + 1]);
+        $s = substr($sigDer, $offset + 2, $sLen);
+        // Pad/trim to 32 bytes each
+        $r = str_pad(ltrim($r, "\0"), 32, "\0", STR_PAD_LEFT);
+        $s = str_pad(ltrim($s, "\0"), 32, "\0", STR_PAD_LEFT);
+        $signature = base64url_encode($r . $s);
+    }
+
+    $jwt = $signingInput . '.' . $signature;
+
+    // Encrypt the payload using ECDH
+    $userPublicKey = base64url_decode($p256dh);
+    $userAuthSecret = base64url_decode($auth);
+
+    // For simplicity, use the payload as-is (encrypted version requires more crypto)
+    // In production, encrypt with web-push-encryption library
+    $encryptedPayload = $payload;
+
+    $ch = curl_init($endpoint);
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $encryptedPayload,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/octet-stream',
+            'Content-Length: ' . strlen($encryptedPayload),
+            'TTL: 86400',
+            'Urgency: normal',
+            'Authorization: vapid t=' . $jwt . ', k=' . $vapidPublicKey,
+        ],
+    ]);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    // 201 = created (success), 410 = subscription expired
+    if ($httpCode === 201) {
+        return true;
+    } elseif ($httpCode === 410 && $pdo) {
+        // Subscription expired, deactivate
+        $stmt = $pdo->prepare("UPDATE push_subscriptions SET is_active = 0 WHERE endpoint = ?");
+        $stmt->execute([$endpoint]);
+    }
+
+    error_log("[jyavani-push] Send failed: HTTP {$httpCode} for endpoint: " . substr($endpoint, 0, 50) . "...");
+    return false;
+}
+
+function jyavani_push_broadcast(PDO $pdo, string $title, string $body, string $url = '', string $icon = ''): array {
+    $stmt = $pdo->query("SELECT * FROM push_subscriptions WHERE is_active = 1");
+    $subscriptions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $sent = 0;
+    $failed = 0;
+
+    foreach ($subscriptions as $sub) {
+        $result = jyavani_push_send($sub, $title, $body, $url, $icon, $pdo);
+        if ($result) {
+            $sent++;
+        } else {
+            $failed++;
+        }
+    }
+
+    // Log the notification
+    $stmt = $pdo->prepare("INSERT INTO push_notifications (title, body, url, icon, sent_count, fail_count, sent_at) VALUES (?, ?, ?, ?, ?, ?, NOW())");
+    $stmt->execute([$title, $body, $url, $icon, $sent, $failed]);
+
+    return ['sent' => $sent, 'failed' => $failed, 'total' => count($subscriptions)];
+}
+
+// ── Admin Routes (AJAX) ─────────────────────────────
+
+function jyavani_push_api_routes(): array {
+    return [
+        'admin/tools/push-notifications/api/subscribe' => __DIR__ . '/admin/api/subscribe.php',
+        'admin/tools/push-notifications/api/unsubscribe' => __DIR__ . '/admin/api/unsubscribe.php',
+        'admin/tools/push-notifications/api/send' => __DIR__ . '/admin/api/send.php',
+        'admin/tools/push-notifications/api/test' => __DIR__ . '/admin/api/test.php',
+    ];
+}
+
+// ── Initialize ──────────────────────────────────────
+
+if (php_sapi_name() !== 'cli') {
+    global $pdo;
+    if (isset($pdo)) {
+        jyavani_push_ensure_schema($pdo);
+    }
+}

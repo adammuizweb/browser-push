@@ -1,0 +1,76 @@
+{
+  "name": "jyavani-push",
+  "version": "1.0.0",
+  "title": "Push Notifications",
+  "description": "Browser push notifications for Jyavani CMS — subscribe from frontend, send from admin dashboard or API.",
+  "author": "Adam Muiz",
+  "author_uri": "https://adammuiz.com",
+  "plugin_uri": "https://jyavani.com/plugin/jyavani-push/",
+  "homepage": "https://github.com/adammuizweb/jyavani-push",
+  "icon": "icon.png",
+  "requires": {
+    "php": ">=8.1",
+    "extensions": ["pdo", "json", "openssl"]
+  },
+  "admin": {
+    "pages": [
+      {
+        "route": "admin/tools/push-notifications",
+        "file": "admin/index.php",
+        "title": "Push Notifications",
+        "roles": ["admin"]
+      },
+      {
+        "route": "admin/tools/push-notifications/send",
+        "file": "admin/send.php",
+        "title": "Send Notification",
+        "hidden": true,
+        "roles": ["admin"]
+      },
+      {
+        "route": "admin/tools/push-notifications/settings",
+        "file": "admin/settings.php",
+        "title": "Push Settings",
+        "hidden": true,
+        "roles": ["admin"]
+      },
+      {
+        "route": "admin/tools/push-notifications/api/subscribe",
+        "file": "admin/api/subscribe.php",
+        "hidden": true,
+        "roles": ["admin"]
+      },
+      {
+        "route": "admin/tools/push-notifications/api/unsubscribe",
+        "file": "admin/api/unsubscribe.php",
+        "hidden": true,
+        "roles": ["admin"]
+      },
+      {
+        "route": "admin/tools/push-notifications/api/send",
+        "file": "admin/api/send.php",
+        "hidden": true,
+        "roles": ["admin"]
+      },
+      {
+        "route": "admin/tools/push-notifications/api/test",
+        "file": "admin/api/test.php",
+        "hidden": true,
+        "roles": ["admin"]
+      }
+    ],
+    "nav": [
+      {
+        "label": "Push Notifications",
+        "icon": "bell",
+        "page": "admin/tools/push-notifications",
+        "parent": "tools",
+        "roles": ["admin"]
+      }
+    ]
+  },
+  "assets": {
+    "css": ["/static/push/css/push-admin.css"],
+    "js": []
+  }
+}
