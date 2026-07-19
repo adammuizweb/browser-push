@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 /**
- * Jyavani Push Notifications Plugin v1.0.0
+ * Browser Push Notifications Plugin v1.0.1
  * Browser push notifications via Web Push API (VAPID).
  */
 
