@@ -150,108 +150,75 @@ function jyavani_push_send(array $subscription, string $title, string $body, str
     $vapidSubject = $settings['push_vapid_subject'] ?? 'mailto:admin@example.com';
 
     if (empty($vapidPublicKey) || empty($vapidPrivateKey)) {
-        error_log('[jyavani-push] VAPID keys not configured');
+        error_log('[browser-push] VAPID keys not configured');
         return false;
     }
 
-    $payload = json_encode([
+    // Extract raw d value from PEM for web-push library
+    $pem = base64_decode($vapidPrivateKey);
+    $key = openssl_pkey_get_private($pem);
+    if (!$key) {
+        error_log('[browser-push] Failed to load VAPID private key');
+        return false;
+    }
+    $details = openssl_pkey_get_details($key);
+    $vapidPrivateKeyRaw = rtrim(strtr(base64_encode($details['ec']['d']), '+/', '-_'), '=');
+    openssl_pkey_free($key);
+
+    $payload = [
         'title' => $title,
         'body' => $body,
         'url' => $url,
         'icon' => $icon ?: ($settings['push_default_icon'] ?? '/static/icons/lucide/bell.svg'),
         'badge' => '/static/icons/lucide/bell.svg',
         'timestamp' => time() * 1000,
+    ];
+
+    $input = json_encode([
+        'endpoint' => $subscription['endpoint'],
+        'p256dh' => $subscription['p256dh_key'],
+        'auth' => $subscription['auth_key'],
+        'payload' => $payload,
+        'vapidPublicKey' => $vapidPublicKey,
+        'vapidPrivateKey' => $vapidPrivateKeyRaw,
+        'vapidSubject' => $vapidSubject,
     ]);
 
-    // Decrypt the subscription keys
-    $endpoint = $subscription['endpoint'];
-    $p256dh = $subscription['p256dh_key'];
-    $auth = $subscription['auth_key'];
-
-    // Build the JWT for VAPID
-    $header = base64url_encode(json_encode(['typ' => 'JWT', 'alg' => 'ES256']));
-    $now = time();
-    $claims = base64url_encode(json_encode([
-        'aud' => parse_url($endpoint, PHP_URL_SCHEME) . '://' . parse_url($endpoint, PHP_URL_HOST),
-        'exp' => $now + 43200,
-        'sub' => $vapidSubject,
-    ]));
-
-    // Sign with ECDSA P-256
-    $signingInput = $header . '.' . $claims;
-    $pem = base64_decode($vapidPrivateKey);
-    $key = openssl_pkey_get_private($pem);
-    if (!$key) {
-        error_log('[jyavani-push] Failed to load VAPID private key');
+    $descriptorspec = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+    $env = $_SERVER;
+    $env['NODE_OPTIONS'] = '--dns-result-order=ipv4first';
+    $proc = proc_open(__DIR__ . '/lib/push.js', $descriptorspec, $pipes, null, $env);
+    if (!is_resource($proc)) {
+        error_log('[browser-push] Failed to start Node.js helper');
         return false;
     }
 
-    $signature = '';
-    $signed = openssl_sign($signingInput, $signature, $key, OPENSSL_ALGO_SHA256);
-    openssl_pkey_free($key);
+    fwrite($pipes[0], $input);
+    fclose($pipes[0]);
 
-    if (!$signed) {
-        error_log('[jyavani-push] Failed to sign VAPID token');
+    $output = stream_get_contents($pipes[1]);
+    $errOutput = stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    $returnCode = proc_close($proc);
+
+    if ($returnCode !== 0) {
+        error_log('[browser-push] Node.js helper error: ' . $errOutput);
         return false;
     }
 
-    // Extract r and s from the signature
-    $sigDer = $signature;
-    $seq = [];
-    // Parse DER-encoded ECDSA signature
-    if (ord($sigDer[0]) === 0x30) {
-        $offset = 2;
-        // Read r
-        $rLen = ord($sigDer[$offset + 1]);
-        $r = substr($sigDer, $offset + 2, $rLen);
-        $offset += 2 + $rLen;
-        // Read s
-        $sLen = ord($sigDer[$offset + 1]);
-        $s = substr($sigDer, $offset + 2, $sLen);
-        // Pad/trim to 32 bytes each
-        $r = str_pad(ltrim($r, "\0"), 32, "\0", STR_PAD_LEFT);
-        $s = str_pad(ltrim($s, "\0"), 32, "\0", STR_PAD_LEFT);
-        $signature = base64url_encode($r . $s);
+    $result = json_decode($output, true);
+    if (!$result || !$result['ok']) {
+        $status = $result['status'] ?? 0;
+        if ($status === 410 && $pdo) {
+            $stmt = $pdo->prepare("UPDATE push_subscriptions SET is_active = 0 WHERE endpoint = ?");
+            $stmt->execute([$subscription['endpoint']]);
+        }
+        error_log('[browser-push] Send failed: HTTP ' . $status . ' for endpoint: ' . substr($subscription['endpoint'], 0, 50) . '...');
+        return false;
     }
 
-    $jwt = $signingInput . '.' . $signature;
-
-    // Encrypt the payload using ECDH
-    $userPublicKeyRaw = base64url_decode($p256dh);
-    $userAuthRaw = base64url_decode($auth);
-    $encryptedPayload = jyavani_push_encrypt($payload, $userPublicKeyRaw, $userAuthRaw);
-
-    $ch = curl_init($endpoint);
-    curl_setopt_array($ch, [
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => $encryptedPayload,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 30,
-        CURLOPT_HTTPHEADER => [
-            'Content-Type: application/octet-stream',
-            'Content-Encoding: aes128gcm',
-            'Content-Length: ' . strlen($encryptedPayload),
-            'TTL: 86400',
-            'Urgency: normal',
-            'Authorization: vapid t=' . $jwt . ', k=' . $vapidPublicKey,
-        ],
-    ]);
-
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-
-    // 201 = created (success), 410 = subscription expired
-    if ($httpCode === 201) {
-        return true;
-    } elseif ($httpCode === 410 && $pdo) {
-        // Subscription expired, deactivate
-        $stmt = $pdo->prepare("UPDATE push_subscriptions SET is_active = 0 WHERE endpoint = ?");
-        $stmt->execute([$endpoint]);
-    }
-
-    error_log("[jyavani-push] Send failed: HTTP {$httpCode} for endpoint: " . substr($endpoint, 0, 50) . "...");
-    return false;
+    return true;
 }
 
 function jyavani_push_broadcast(PDO $pdo, string $title, string $body, string $url = '', string $icon = ''): array {
