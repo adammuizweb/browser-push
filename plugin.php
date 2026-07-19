@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 /**
- * Browser Push Notifications Plugin v1.0.4
+ * Browser Push Notifications Plugin v1.0.5
  * Browser push notifications via Web Push API (VAPID).
  */
 
@@ -129,13 +129,16 @@ function jyavani_push_encrypt(string $payload, string $userPublicKey, string $us
     $cek = hkdf_expand($prk, $cekInfo, 16);
     $nonce = hkdf_expand($prk, $nonceInfo, 12);
 
-    // Encrypt with AES-128-GCM
-    $tag = '';
-    $ciphertext = openssl_encrypt($payload, 'aes-128-gcm', $cek, OPENSSL_RAW_DATA, $nonce, $tag, '', 16);
-
-    // Build output: salt(16) || record_size(4) || key_length(1) || eph_public(65) || ciphertext || tag(16)
+    // Build header for AAD
     $recordSize = pack('N', 4096);
-    return $salt . $recordSize . chr(65) . $ephPublicRaw . $ciphertext . $tag;
+    $header = $salt . $recordSize . chr(65) . $ephPublicRaw;
+
+    // Encrypt with AES-128-GCM, AAD = header (RFC 8188)
+    $tag = '';
+    $ciphertext = openssl_encrypt($payload, 'aes-128-gcm', $cek, OPENSSL_RAW_DATA, $nonce, $tag, $header, 16);
+
+    // Build output: header || ciphertext || tag
+    return $header . $ciphertext . $tag;
 }
 
 // ── Web Push Send ───────────────────────────────────
