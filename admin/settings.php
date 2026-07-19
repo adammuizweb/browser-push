@@ -21,7 +21,7 @@ $settings = jyavani_push_settings($pdo);
 
 <div style="padding:1.5rem;max-width:600px">
   <div style="margin-bottom:1.5rem">
-    <a href="<?= $base ?>/admin/tools/push-notifications" style="color:var(--muted);text-decoration:none;font-size:.875rem">&larr; Back to Push Notifications</a>
+    <a href="<?= $base ?>/?page=admin/tools/push-notifications" style="color:var(--muted);text-decoration:none;font-size:.875rem">&larr; Back to Push Notifications</a>
     <h2 style="margin:.5rem 0 0">Push Notification Settings</h2>
   </div>
 
@@ -44,7 +44,7 @@ $settings = jyavani_push_settings($pdo);
     </div>
     <div>
       <label style="display:block;font-weight:600;margin-bottom:.25rem">VAPID Subject</label>
-      <input type="email" name="vapid_subject" placeholder="mailto:admin@adammuiz.com"
+      <input type="text" name="vapid_subject" placeholder="mailto:admin@adammuiz.com"
         style="width:100%;padding:.5rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text)"
         value="<?= e($settings['push_vapid_subject'] ?? 'mailto:admin@adammuiz.com') ?>">
     </div>

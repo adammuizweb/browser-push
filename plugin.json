@@ -4,7 +4,7 @@
   "title": "Push Notifications",
   "description": "Browser push notifications for Jyavani CMS — subscribe from frontend, send from admin dashboard or API.",
   "author": "Adam Muiz",
-  "author_uri": "https://adammuiz.com",
+  "author_uri": "https://jyavani.com/member/adammuiz/",
   "plugin_uri": "https://jyavani.com/plugin/jyavani-push/",
   "homepage": "https://github.com/adammuizweb/jyavani-push",
   "icon": "icon.png",
@@ -72,5 +72,12 @@
   "assets": {
     "css": ["/static/push/css/push-admin.css"],
     "js": []
+  },
+  "static": {
+    "copy": [
+      {"from": "public/sw.js", "to": "static/push/sw.js"},
+      {"from": "public/push.js", "to": "static/push/push.js"},
+      {"from": "assets/css/push-admin.css", "to": "static/push/css/push-admin.css"}
+    ]
   }
 }

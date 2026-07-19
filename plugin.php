@@ -61,7 +61,7 @@ function jyavani_push_save_setting(PDO $pdo, string $key, string $value): void {
 
 // ── Web Push Send ───────────────────────────────────
 
-function jyavani_push_send(array $subscription, string $title, string $body, string $url = '', string $icon = '', PDO $pdo = null): bool {
+function jyavani_push_send(array $subscription, string $title, string $body, string $url = '', string $icon = '', ?PDO $pdo = null): bool {
     $settings = $pdo ? jyavani_push_settings($pdo) : [];
     $vapidPublicKey = $settings['push_vapid_public_key'] ?? '';
     $vapidPrivateKey = $settings['push_vapid_private_key'] ?? '';
@@ -214,4 +214,84 @@ if (php_sapi_name() !== 'cli') {
     if (isset($pdo)) {
         jyavani_push_ensure_schema($pdo);
     }
+}
+
+// ── Sidebar Widget ──────────────────────────────────
+
+add_filter('sidebar_widget_types', function (array $types): array {
+    $types['push_subscribe'] = [
+        'label'          => 'Push Notifications',
+        'desc'           => 'Subscribe button for browser push notifications.',
+        'default_config' => ['title' => 'Notifikasi'],
+    ];
+    return $types;
+});
+
+add_filter('render_sidebar_widget', function ($html, string $type, array $config, PDO $pdo): string {
+    if ($type !== 'push_subscribe') return $html;
+    return jyavani_push_render_subscribe_widget($pdo, $config);
+}, 10, 4);
+
+function jyavani_push_render_subscribe_widget(PDO $pdo, array $config): string {
+    $settings = jyavani_push_settings($pdo);
+    $vapidKey = $settings['push_vapid_public_key'] ?? '';
+    if ($vapidKey === '') return '';
+
+    $title = h($config['title'] ?? 'Notifikasi');
+    $subscribeUrl = '/api/push/subscribe.php';
+    $unsubscribeUrl = '/api/push/unsubscribe.php';
+
+    $html = '<div class="w-box w-push-subscribe">';
+    $html .= '<h3 class="w-title">' . $title . '</h3>';
+    $html .= '<p style="font-size:.85rem;color:var(--muted);margin:0 0 .75rem">Dapatkan notifikasi saat artikel baru terbit.</p>';
+    $html .= '<div id="push-status" style="font-size:.8rem;color:var(--muted);margin-bottom:.5rem"></div>';
+    $html .= '<button id="push-subscribe-btn" onclick="jyavaniPushToggle()" style="';
+    $html .= 'display:inline-flex;align-items:center;gap:.4rem;';
+    $html .= 'padding:.45rem .9rem;border-radius:6px;border:1px solid var(--border);';
+    $html .= 'background:var(--surface);color:var(--text);cursor:pointer;';
+    $html .= 'font-size:.85rem;font-family:inherit;transition:background .15s,border-color .15s">';
+    $html .= '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
+    $html .= '<span id="push-btn-text">Subscribe</span>';
+    $html .= '</button>';
+    $html .= '</div>';
+    $html .= '<script>';
+    $html .= '(function(){';
+    $html .= 'var VAPID_KEY=' . json_encode($vapidKey) . ';';
+    $html .= 'var SUB_URL=' . json_encode($subscribeUrl) . ';';
+    $html .= 'var UNSUB_URL=' . json_encode($unsubscribeUrl) . ';';
+    $html .= 'function base64urlToUint8Array(s){var p="=".repeat((4-s.length%4)%4);var b=(s+p).replace(/-/g,"+").replace(/_/g,"/");var d=atob(b);var a=new Uint8Array(d.length);for(var i=0;i<d.length;i++)a[i]=d.charCodeAt(i);return a}';
+    $html .= 'function updateUI(){';
+    $html .= 'if(!("serviceWorker" in navigator)||!("PushManager" in window)||!("Notification" in window)){';
+    $html .= 'document.getElementById("push-status").textContent="Browser tidak mendukung push notification.";';
+    $html .= 'document.getElementById("push-subscribe-btn").style.display="none";return}';
+    $html .= 'navigator.serviceWorker.ready.then(function(reg){';
+    $html .= 'reg.pushManager.getSubscription().then(function(sub){';
+    $html .= 'var btn=document.getElementById("push-btn-text");';
+    $html .= 'var st=document.getElementById("push-status");';
+    $html .= 'if(sub){btn.textContent="Unsubscribe";st.textContent="Anda sudah berlangganan."}';
+    $html .= 'else{btn.textContent="Subscribe";st.textContent=""}';
+    $html .= '})})}';
+    $html .= 'window.jyavaniPushToggle=function(){';
+    $html .= 'if(!("serviceWorker" in navigator)||!("PushManager" in window)||!("Notification" in window))return;';
+    $html .= 'navigator.serviceWorker.ready.then(function(reg){';
+    $html .= 'reg.pushManager.getSubscription().then(function(sub){';
+    $html .= 'if(sub){doUnsubscribe(reg,sub)}else{doSubscribe(reg)}';
+    $html .= '})})};';
+    $html .= 'function doSubscribe(reg){';
+    $html .= 'Notification.requestPermission().then(function(perm){';
+    $html .= 'if(perm!=="granted")return;';
+    $html .= 'reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:base64urlToUint8Array(VAPID_KEY)}).then(function(sub){';
+    $html .= 'var j=sub.toJSON();';
+    $html .= 'fetch(SUB_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({endpoint:j.endpoint,keys:j.keys})}).then(function(){updateUI()})';
+    $html .= '})})}';
+    $html .= 'function doUnsubscribe(reg,sub){';
+    $html .= 'sub.unsubscribe().then(function(){';
+    $html .= 'var j=sub.toJSON();';
+    $html .= 'fetch(UNSUB_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({endpoint:j.endpoint})}).then(function(){updateUI()})';
+    $html .= '})}';
+    $html .= 'if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",updateUI)}else{updateUI()}';
+    $html .= '})();';
+    $html .= '</script>';
+
+    return $html;
 }
