@@ -39,23 +39,23 @@ function jyavani_push_ensure_schema(PDO $pdo): void {
 // ── Settings ────────────────────────────────────────
 
 function jyavani_push_settings(PDO $pdo): array {
-    $stmt = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'push_%'");
+    $stmt = $pdo->query("SELECT `key`, `value` FROM settings WHERE `key` LIKE 'push_%'");
     $settings = [];
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $settings[$row['setting_key']] = $row['setting_value'];
+        $settings[$row['key']] = $row['value'];
     }
     return $settings;
 }
 
 function jyavani_push_setting(PDO $pdo, string $key, string $default = ''): string {
-    $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = ?");
+    $stmt = $pdo->prepare("SELECT `value` FROM settings WHERE `key` = ?");
     $stmt->execute([$key]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    return $row ? $row['setting_value'] : $default;
+    return $row ? $row['value'] : $default;
 }
 
 function jyavani_push_save_setting(PDO $pdo, string $key, string $value): void {
-    $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+    $stmt = $pdo->prepare("INSERT INTO settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)");
     $stmt->execute([$key, $value]);
 }
 
