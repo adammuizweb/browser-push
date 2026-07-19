@@ -6,7 +6,7 @@
   "author": "Adam Muiz",
   "author_uri": "https://jyavani.com/member/adammuiz/",
   "plugin_uri": "https://jyavani.com/plugin/jyavani-push/",
-  "homepage": "https://github.com/adammuizweb/jyavani-push",
+  "homepage": "https://github.com/adammuizweb/browser-push",
   "icon": "icon.png",
   "requires": {
     "php": ">=8.1",
