@@ -13,6 +13,7 @@ $recentNotifications = $pdo->query("SELECT * FROM push_notifications ORDER BY cr
 
 $settings = jyavani_push_settings($pdo);
 $vapidConfigured = !empty($settings['push_vapid_public_key']) && !empty($settings['push_vapid_private_key']);
+$apiSecret = jyavani_push_setting($pdo, 'push_api_secret', '');
 $base = ADMIN_BASE_PATH;
 ?>
 <style>
@@ -45,16 +46,16 @@ $base = ADMIN_BASE_PATH;
     </div>
     <div style="display:flex;gap:.5rem">
       <?php if (!$vapidConfigured): ?>
-        <a href="<?= $base ?>/admin/tools/push-notifications/settings" class="push-btn primary">Configure VAPID Keys</a>
+        <a href="<?= $base ?>/?page=admin/tools/push-notifications/settings" class="push-btn primary">Configure VAPID Keys</a>
       <?php endif; ?>
-      <a href="<?= $base ?>/admin/tools/push-notifications/send" class="push-btn primary"><?= svg_ico('send') ?> Send Notification</a>
-      <a href="<?= $base ?>/admin/tools/push-notifications/settings" class="push-btn"><?= svg_ico('cog') ?> Settings</a>
+      <a href="<?= $base ?>/?page=admin/tools/push-notifications/send" class="push-btn primary"><?= svg_ico('send') ?> Send Notification</a>
+      <a href="<?= $base ?>/?page=admin/tools/push-notifications/settings" class="push-btn"><?= svg_ico('cog') ?> Settings</a>
     </div>
   </div>
 
   <?php if (!$vapidConfigured): ?>
     <div style="background:#ca8a0420;border:1px solid #ca8a0440;border-radius:var(--radius-md);padding:1rem;margin-bottom:1.5rem">
-      <strong>VAPID keys not configured.</strong> Go to <a href="<?= $base ?>/admin/tools/push-notifications/settings">Settings</a> to add your VAPID public and private keys.
+      <strong>VAPID keys not configured.</strong>       Go to <a href="<?= $base ?>/?page=admin/tools/push-notifications/settings">Settings</a> to add your VAPID public and private keys.
     </div>
   <?php endif; ?>
 
@@ -107,25 +108,26 @@ $base = ADMIN_BASE_PATH;
 </div>
 
 <script>
-async function testPush() {
-  const btn = document.getElementById('testBtn');
+var PUSH_SECRET = <?= json_encode($apiSecret) ?>;
+function testPush() {
+  var btn = document.getElementById('testBtn');
   btn.disabled = true;
   btn.textContent = 'Sending...';
-  try {
-    const resp = await fetch('<?= $base ?>/admin/tools/push-notifications/api/test', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}
-    });
-    const data = await resp.json();
-    if (data.ok) {
-      alert('Test notification sent! Sent: ' + data.result.sent + ', Failed: ' + data.result.failed);
+  fetch('/api/push/send.php', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-Push-Secret': PUSH_SECRET},
+    body: JSON.stringify({title: 'Test Notification', body: 'Push notifications are working! This is a test from Jyavani CMS.'})
+  }).then(function(r){return r.json()}).then(function(d){
+    if (d.ok) {
+      window.NewNotifToast ? window.NewNotifToast.success('Test sent! Sent: ' + d.result.sent + ', Failed: ' + d.result.failed) : alert('Test sent! Sent: ' + d.result.sent + ', Failed: ' + d.result.failed);
     } else {
-      alert('Error: ' + (data.error || 'Unknown error'));
+      window.NewNotifToast ? window.NewNotifToast.error(d.error || 'Unknown error') : alert('Error: ' + (d.error || 'Unknown'));
     }
-  } catch (e) {
-    alert('Network error: ' + e.message);
-  }
-  btn.disabled = false;
-  btn.textContent = 'Send Test';
+  }).catch(function(e){
+    window.NewNotifToast ? window.NewNotifToast.error('Network error: ' + e.message) : alert('Network error: ' + e.message);
+  }).finally(function(){
+    btn.disabled = false;
+    btn.textContent = 'Send Test';
+  });
 }
 </script>

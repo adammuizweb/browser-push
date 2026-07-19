@@ -21,7 +21,7 @@ if (!$privKey) {
 }
 
 $details = openssl_pkey_get_details($privKey);
-$publicKey = base64url_encode($details['ec']['x'] . $details['ec']['y']);
+$publicKey = base64url_encode("\x04" . $details['ec']['x'] . $details['ec']['y']);
 $privateKey = base64url_encode($details['ec']['d']);
 
 echo "VAPID Keys Generated (ECDSA P-256):\n";
