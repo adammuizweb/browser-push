@@ -35,11 +35,11 @@ $keyFile = __DIR__ . '/vapid-keys.json';
 file_put_contents($keyFile, json_encode([
     'public_key' => $publicKey,
     'private_key' => $privateKey,
-    'subject' => 'mailto:admin@adammuiz.com',
+    'subject' => 'mailto:admin@example.com',
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
 echo "Keys saved to: {$keyFile}\n\n";
 echo "Add to CMS settings (database):\n";
 echo "  push_vapid_public_key  = {$publicKey}\n";
 echo "  push_vapid_private_key = {$privateKey}\n";
-echo "  push_vapid_subject     = mailto:admin@adammuiz.com\n";
+echo "  push_vapid_subject     = mailto:admin@example.com\n";

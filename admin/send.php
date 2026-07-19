@@ -45,12 +45,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
     <div>
       <label style="display:block;font-weight:600;margin-bottom:.25rem">Body *</label>
-      <textarea name="body" required rows="3" placeholder="Cek artikel terbaru di adammuiz.com..."
+      <textarea name="body" required rows="3" placeholder="Cek artikel terbaru di website kamu..."
         style="width:100%;padding:.5rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text)"><?= e($_POST['body'] ?? '') ?></textarea>
     </div>
     <div>
       <label style="display:block;font-weight:600;margin-bottom:.25rem">URL (optional)</label>
-      <input type="url" name="url" placeholder="https://adammuiz.com/slug/"
+      <input type="url" name="url" placeholder="https://example.com/slug/"
         style="width:100%;padding:.5rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text)"
         value="<?= e($_POST['url'] ?? '') ?>">
     </div>

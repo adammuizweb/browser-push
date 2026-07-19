@@ -147,7 +147,7 @@ function jyavani_push_send(array $subscription, string $title, string $body, str
     $settings = $pdo ? jyavani_push_settings($pdo) : [];
     $vapidPublicKey = $settings['push_vapid_public_key'] ?? '';
     $vapidPrivateKey = $settings['push_vapid_private_key'] ?? '';
-    $vapidSubject = $settings['push_vapid_subject'] ?? 'mailto:admin@adammuiz.com';
+    $vapidSubject = $settings['push_vapid_subject'] ?? 'mailto:admin@example.com';
 
     if (empty($vapidPublicKey) || empty($vapidPrivateKey)) {
         error_log('[jyavani-push] VAPID keys not configured');

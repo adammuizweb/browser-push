@@ -11,7 +11,7 @@ $success = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     jyavani_push_save_setting($pdo, 'push_vapid_public_key', trim($_POST['vapid_public_key'] ?? ''));
     jyavani_push_save_setting($pdo, 'push_vapid_private_key', trim($_POST['vapid_private_key'] ?? ''));
-    jyavani_push_save_setting($pdo, 'push_vapid_subject', trim($_POST['vapid_subject'] ?? 'mailto:admin@adammuiz.com'));
+    jyavani_push_save_setting($pdo, 'push_vapid_subject', trim($_POST['vapid_subject'] ?? 'mailto:admin@example.com'));
     jyavani_push_save_setting($pdo, 'push_default_icon', trim($_POST['default_icon'] ?? '/static/icons/lucide/bell.svg'));
     $success = 'Settings saved.';
 }
@@ -44,9 +44,9 @@ $settings = jyavani_push_settings($pdo);
     </div>
     <div>
       <label style="display:block;font-weight:600;margin-bottom:.25rem">VAPID Subject</label>
-      <input type="text" name="vapid_subject" placeholder="mailto:admin@adammuiz.com"
+      <input type="text" name="vapid_subject" placeholder="mailto:admin@example.com"
         style="width:100%;padding:.5rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text)"
-        value="<?= e($settings['push_vapid_subject'] ?? 'mailto:admin@adammuiz.com') ?>">
+        value="<?= e($settings['push_vapid_subject'] ?? 'mailto:admin@example.com') ?>">
     </div>
     <div>
       <label style="display:block;font-weight:600;margin-bottom:.25rem">Default Notification Icon</label>
@@ -56,7 +56,7 @@ $settings = jyavani_push_settings($pdo);
     </div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:1rem">
       <p style="margin:0;font-size:.875rem;color:var(--muted)">
-        <strong>Generate VAPID keys:</strong> Run <code>php plugins/jyavani-push/generate-vapid.php</code> from the CMS root directory.
+        <strong>Generate VAPID keys:</strong> Run <code>php plugins/browser-push/generate-vapid.php</code> from the CMS root directory.
         The keys identify your app to push services and must be kept secret.
       </p>
     </div>
