@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 /**
- * Browser Push Notifications Plugin v1.0.3
+ * Browser Push Notifications Plugin v1.0.4
  * Browser push notifications via Web Push API (VAPID).
  */
 
@@ -67,6 +67,75 @@ function base64url_encode(string $data): string {
 
 function base64url_decode(string $data): string {
     return base64_decode(strtr($data, '-_', '+/'));
+}
+
+function pem_encode_ec_public_key(string $rawPoint): string {
+    // Build SPKI DER for EC P-256 public key
+    $oidEcPublicKey = "\x06\x07\x2a\x86\x48\xce\x3d\x02\x01";
+    $oidPrime256v1  = "\x06\x08\x2a\x86\x48\xce\x3d\x03\x01\x07";
+    $algorithmSeq = chr(0x30) . chr(strlen($oidEcPublicKey) + strlen($oidPrime256v1))
+                    . $oidEcPublicKey . $oidPrime256v1;
+    $bitString = "\x03" . chr(strlen($rawPoint) + 1) . "\x00" . $rawPoint;
+    $der = chr(0x30) . chr(strlen($algorithmSeq) + strlen($bitString))
+           . $algorithmSeq . $bitString;
+    return "-----BEGIN PUBLIC KEY-----\n"
+           . chunk_split(base64_encode($der), 64, "\n")
+           . "-----END PUBLIC KEY-----\n";
+}
+
+function hkdf_extract(string $salt, string $ikm): string {
+    return hash_hmac('sha256', $ikm, $salt, true);
+}
+
+function hkdf_expand(string $prk, string $info, int $length): string {
+    $t = '';
+    $last = '';
+    $blocks = ceil($length / 32);
+    for ($i = 1; $i <= $blocks; $i++) {
+        $last = hash_hmac('sha256', $last . $info . chr($i), $prk, true);
+        $t .= $last;
+    }
+    return substr($t, 0, $length);
+}
+
+function jyavani_push_encrypt(string $payload, string $userPublicKey, string $userAuth): string {
+    // Generate ephemeral key pair
+    $ephKey = openssl_pkey_new(['curve_name' => 'prime256v1', 'private_key_type' => OPENSSL_KEYTYPE_EC]);
+    $ephDetails = openssl_pkey_get_details($ephKey);
+    $ephPublicRaw = "\x04" . $ephDetails['ec']['x'] . $ephDetails['ec']['y'];
+    $salt = random_bytes(16);
+
+    // ECDH shared secret
+    $userPubPem = pem_encode_ec_public_key($userPublicKey);
+    $userPubKeyObj = openssl_pkey_get_public($userPubPem);
+    if (!$userPubKeyObj) {
+        openssl_pkey_free($ephKey);
+        return '';
+    }
+    $sharedSecret = openssl_pkey_derive($userPubKeyObj, $ephKey);
+    openssl_pkey_free($ephKey);
+    openssl_pkey_free($userPubKeyObj);
+
+    // PRK = HMAC-SHA256(auth, shared_secret)
+    $prk = hkdf_extract($userAuth, $sharedSecret);
+
+    // Build context
+    $context = chr(strlen($userPublicKey)) . $userPublicKey
+              . chr(strlen($ephPublicRaw)) . $ephPublicRaw;
+
+    // Derive CEK and Nonce
+    $cekInfo = "Content-Encoding: aes128gcm\0" . $context;
+    $nonceInfo = "Content-Encoding: nonce\0" . $context;
+    $cek = hkdf_expand($prk, $cekInfo, 16);
+    $nonce = hkdf_expand($prk, $nonceInfo, 12);
+
+    // Encrypt with AES-128-GCM
+    $tag = '';
+    $ciphertext = openssl_encrypt($payload, 'aes-128-gcm', $cek, OPENSSL_RAW_DATA, $nonce, $tag, '', 16);
+
+    // Build output: salt(16) || record_size(4) || key_length(1) || eph_public(65) || ciphertext || tag(16)
+    $recordSize = pack('N', 4096);
+    return $salt . $recordSize . chr(65) . $ephPublicRaw . $ciphertext . $tag;
 }
 
 // ── Web Push Send ───────────────────────────────────
@@ -145,12 +214,9 @@ function jyavani_push_send(array $subscription, string $title, string $body, str
     $jwt = $signingInput . '.' . $signature;
 
     // Encrypt the payload using ECDH
-    $userPublicKey = base64url_decode($p256dh);
-    $userAuthSecret = base64url_decode($auth);
-
-    // For simplicity, use the payload as-is (encrypted version requires more crypto)
-    // In production, encrypt with web-push-encryption library
-    $encryptedPayload = $payload;
+    $userPublicKeyRaw = base64url_decode($p256dh);
+    $userAuthRaw = base64url_decode($auth);
+    $encryptedPayload = jyavani_push_encrypt($payload, $userPublicKeyRaw, $userAuthRaw);
 
     $ch = curl_init($endpoint);
     curl_setopt_array($ch, [
@@ -160,6 +226,7 @@ function jyavani_push_send(array $subscription, string $title, string $body, str
         CURLOPT_TIMEOUT => 30,
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/octet-stream',
+            'Content-Encoding: aes128gcm',
             'Content-Length: ' . strlen($encryptedPayload),
             'TTL: 86400',
             'Urgency: normal',
