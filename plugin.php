@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 /**
- * Browser Push Notifications Plugin v1.0.5
+ * Browser Push Notifications Plugin v1.0.6
  * Browser push notifications via Web Push API (VAPID).
  */
 
