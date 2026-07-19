@@ -1,6 +1,6 @@
 {
   "name": "jyavani-push",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "title": "Push Notifications",
   "description": "Browser push notifications for Jyavani CMS — subscribe from frontend, send from admin dashboard or API.",
   "author": "Adam Muiz",

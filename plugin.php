@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 /**
- * Browser Push Notifications Plugin v1.0.1
+ * Browser Push Notifications Plugin v1.0.2
  * Browser push notifications via Web Push API (VAPID).
  */
 
@@ -57,6 +57,16 @@ function jyavani_push_setting(PDO $pdo, string $key, string $default = ''): stri
 function jyavani_push_save_setting(PDO $pdo, string $key, string $value): void {
     $stmt = $pdo->prepare("INSERT INTO settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)");
     $stmt->execute([$key, $value]);
+}
+
+// ── Helpers ─────────────────────────────────────────
+
+function base64url_encode(string $data): string {
+    return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+}
+
+function base64url_decode(string $data): string {
+    return base64_decode(strtr($data, '-_', '+/'));
 }
 
 // ── Web Push Send ───────────────────────────────────
