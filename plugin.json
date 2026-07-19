@@ -1,5 +1,5 @@
 {
-  "name": "jyavani-push",
+  "name": "browser-push",
   "version": "1.0.5",
   "title": "Push Notifications",
   "description": "Browser push notifications for Jyavani CMS — subscribe from frontend, send from admin dashboard or API.",
