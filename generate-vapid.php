@@ -6,10 +6,6 @@ declare(strict_types=1);
  * Run once: php generate-vapid.php
  */
 
-function base64url_encode(string $data): string {
-    return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
-}
-
 // Generate EC P-256 key pair
 $privKey = openssl_pkey_new([
     'curve_name' => 'prime256v1',
@@ -20,14 +16,19 @@ if (!$privKey) {
     die("Failed to generate key pair. Ensure openssl extension is loaded.\n");
 }
 
+// Export private key in PEM format for openssl_pkey_get_private()
+$pem = '';
+openssl_pkey_export($privKey, $pem);
+
+// Get raw public key components for VAPID
 $details = openssl_pkey_get_details($privKey);
-$publicKey = base64url_encode("\x04" . $details['ec']['x'] . $details['ec']['y']);
-$privateKey = base64url_encode($details['ec']['d']);
+$publicKey = rtrim(strtr(base64_encode("\x04" . $details['ec']['x'] . $details['ec']['y']), '+/', '-_'), '=');
+$privateKey = base64_encode($pem);
 
 echo "VAPID Keys Generated (ECDSA P-256):\n";
 echo "====================================\n";
 echo "Public Key:\n  " . $publicKey . "\n\n";
-echo "Private Key:\n  " . $privateKey . "\n\n";
+echo "Private Key (PEM base64):\n  " . $privateKey . "\n\n";
 
 // Save to file for reference
 $keyFile = __DIR__ . '/vapid-keys.json';

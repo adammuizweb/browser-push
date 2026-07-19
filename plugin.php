@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 /**
- * Browser Push Notifications Plugin v1.0.2
+ * Browser Push Notifications Plugin v1.0.3
  * Browser push notifications via Web Push API (VAPID).
  */
 
@@ -107,7 +107,8 @@ function jyavani_push_send(array $subscription, string $title, string $body, str
 
     // Sign with ECDSA P-256
     $signingInput = $header . '.' . $claims;
-    $key = openssl_pkey_get_private('ec:' . base64_decode($vapidPrivateKey));
+    $pem = base64_decode($vapidPrivateKey);
+    $key = openssl_pkey_get_private($pem);
     if (!$key) {
         error_log('[jyavani-push] Failed to load VAPID private key');
         return false;
