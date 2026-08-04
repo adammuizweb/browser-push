@@ -264,6 +264,13 @@ if (php_sapi_name() !== 'cli') {
     }
 }
 
+// A browser permits only one root-scoped Service Worker per origin. Core serves
+// /sw.js and active plugins append their event handlers through this filter.
+add_filter('service_worker_script', function (string $script): string {
+    $worker = __DIR__ . '/public/sw.js';
+    return is_file($worker) ? $script . "\n" . file_get_contents($worker) : $script;
+});
+
 // ── Sidebar Widget ──────────────────────────────────
 
 add_filter('sidebar_widget_types', function (array $types): array {

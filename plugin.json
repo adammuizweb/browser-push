@@ -1,6 +1,6 @@
 {
   "name": "browser-push",
-  "version": "1.0.7",
+  "version": "1.1.0",
   "title": "Push Notifications",
   "description": "Browser push notifications for Jyavani CMS — subscribe from frontend, send from admin dashboard or API.",
   "author": "Adam Muiz",
@@ -77,6 +77,8 @@
     "copy": [
       {"from": "public/sw.js", "to": "static/push/sw.js"},
       {"from": "public/push.js", "to": "static/push/push.js"},
+      {"from": "public/api/push/subscribe.php", "to": "api/push/subscribe.php"},
+      {"from": "public/api/push/unsubscribe.php", "to": "api/push/unsubscribe.php"},
       {"from": "assets/css/push-admin.css", "to": "static/push/css/push-admin.css"}
     ]
   }
