@@ -13,7 +13,6 @@ $recentNotifications = $pdo->query("SELECT * FROM push_notifications ORDER BY cr
 
 $settings = jyavani_push_settings($pdo);
 $vapidConfigured = !empty($settings['push_vapid_public_key']) && !empty($settings['push_vapid_private_key']);
-$apiSecret = jyavani_push_setting($pdo, 'push_api_secret', '');
 $base = ADMIN_BASE_PATH;
 ?>
 <style>
@@ -108,15 +107,14 @@ $base = ADMIN_BASE_PATH;
 </div>
 
 <script>
-var PUSH_SECRET = <?= json_encode($apiSecret) ?>;
 function testPush() {
   var btn = document.getElementById('testBtn');
   btn.disabled = true;
   btn.textContent = 'Sending...';
-  fetch('/api/push/send.php', {
+  fetch('<?= e($base) ?>/?page=admin/tools/push-notifications/api/test', {
     method: 'POST',
-    headers: {'Content-Type': 'application/json', 'X-Push-Secret': PUSH_SECRET},
-    body: JSON.stringify({title: 'Test Notification', body: 'Push notifications are working! This is a test from Jyavani CMS.'})
+    headers: {'Content-Type': 'application/json'},
+    body: '{}'
   }).then(function(r){return r.json()}).then(function(d){
     if (d.ok) {
       window.NewNotifToast ? window.NewNotifToast.success('Test sent! Sent: ' + d.result.sent + ', Failed: ' + d.result.failed) : alert('Test sent! Sent: ' + d.result.sent + ', Failed: ' + d.result.failed);

@@ -5,8 +5,8 @@
   'use strict';
 
   const VAPID_PUBLIC_KEY = window.JYAVANI_PUSH_VAPID_KEY || '';
-  const SUBSCRIBE_URL = window.JYAVANI_PUSH_SUBSCRIBE_URL || '/admin/tools/push-notifications/api/subscribe';
-  const UNSUBSCRIBE_URL = window.JYAVANI_PUSH_UNSUBSCRIBE_URL || '/admin/tools/push-notifications/api/unsubscribe';
+  const SUBSCRIBE_URL = window.JYAVANI_PUSH_SUBSCRIBE_URL || '/push-api/subscribe';
+  const UNSUBSCRIBE_URL = window.JYAVANI_PUSH_UNSUBSCRIBE_URL || '/push-api/unsubscribe';
 
   function base64urlToUint8Array(base64urlString) {
     const padding = '='.repeat((4 - base64urlString.length % 4) % 4);

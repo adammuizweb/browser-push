@@ -264,6 +264,10 @@ if (php_sapi_name() !== 'cli') {
     }
 }
 
+if (function_exists('register_frontend_route')) {
+    register_frontend_route('push-api', __DIR__ . '/public/api.php');
+}
+
 // A browser permits only one root-scoped Service Worker per origin. Core serves
 // /sw.js and active plugins append their event handlers through this filter.
 add_filter('service_worker_script', function (string $script): string {
@@ -293,8 +297,8 @@ function jyavani_push_render_subscribe_widget(PDO $pdo, array $config): string {
     if ($vapidKey === '') return '';
 
     $title = h($config['title'] ?? 'Notifikasi');
-    $subscribeUrl = '/api/push/subscribe.php';
-    $unsubscribeUrl = '/api/push/unsubscribe.php';
+    $subscribeUrl = '/push-api/subscribe';
+    $unsubscribeUrl = '/push-api/unsubscribe';
 
     $html = '<div class="w-box w-push-subscribe">';
     $html .= '<h3 class="w-title">' . $title . '</h3>';
