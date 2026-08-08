@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 /**
- * Browser Push Notifications Plugin v1.0.7
+ * Browser Push Notifications Plugin v1.1.2
  * Browser push notifications via Web Push API (VAPID).
  */
 
@@ -109,12 +109,9 @@ function jyavani_push_encrypt(string $payload, string $userPublicKey, string $us
     $userPubPem = pem_encode_ec_public_key($userPublicKey);
     $userPubKeyObj = openssl_pkey_get_public($userPubPem);
     if (!$userPubKeyObj) {
-        openssl_pkey_free($ephKey);
         return '';
     }
     $sharedSecret = openssl_pkey_derive($userPubKeyObj, $ephKey);
-    openssl_pkey_free($ephKey);
-    openssl_pkey_free($userPubKeyObj);
 
     // PRK = HMAC-SHA256(auth, shared_secret)
     $prk = hkdf_extract($userAuth, $sharedSecret);
@@ -163,7 +160,6 @@ function jyavani_push_send(array $subscription, string $title, string $body, str
     }
     $details = openssl_pkey_get_details($key);
     $vapidPrivateKeyRaw = rtrim(strtr(base64_encode($details['ec']['d']), '+/', '-_'), '=');
-    openssl_pkey_free($key);
 
     $payload = [
         'title' => $title,
@@ -185,9 +181,15 @@ function jyavani_push_send(array $subscription, string $title, string $body, str
     ]);
 
     $descriptorspec = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
-    $env = $_SERVER;
+    $env = getenv();
+    if (!is_array($env)) $env = [];
     $env['NODE_OPTIONS'] = '--dns-result-order=ipv4first';
-    $proc = proc_open(__DIR__ . '/lib/push.js', $descriptorspec, $pipes, null, $env);
+    if (!is_file(__DIR__ . '/node_modules/web-push/package.json')) {
+        error_log('[browser-push] Missing Node.js dependency. Run npm ci --omit=dev in ' . __DIR__);
+        return false;
+    }
+
+    $proc = proc_open(['node', __DIR__ . '/lib/push.js'], $descriptorspec, $pipes, __DIR__, $env);
     if (!is_resource($proc)) {
         error_log('[browser-push] Failed to start Node.js helper');
         return false;
@@ -203,7 +205,7 @@ function jyavani_push_send(array $subscription, string $title, string $body, str
     $returnCode = proc_close($proc);
 
     if ($returnCode !== 0) {
-        error_log('[browser-push] Node.js helper error: ' . $errOutput);
+        error_log('[browser-push] Node.js helper error (exit ' . $returnCode . '): ' . trim($errOutput));
         return false;
     }
 
@@ -214,7 +216,8 @@ function jyavani_push_send(array $subscription, string $title, string $body, str
             $stmt = $pdo->prepare("UPDATE push_subscriptions SET is_active = 0 WHERE endpoint = ?");
             $stmt->execute([$subscription['endpoint']]);
         }
-        error_log('[browser-push] Send failed: HTTP ' . $status . ' for endpoint: ' . substr($subscription['endpoint'], 0, 50) . '...');
+        $error = trim((string)($result['error'] ?? 'Unknown push service error'));
+        error_log('[browser-push] Send failed: HTTP ' . $status . ' (' . $error . ') for endpoint: ' . substr($subscription['endpoint'], 0, 50) . '...');
         return false;
     }
 
