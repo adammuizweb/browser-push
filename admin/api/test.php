@@ -1,23 +1,23 @@
 <?php
 declare(strict_types=1);
-/**
- * API: Send test push notification
- * POST /admin/tools/push-notifications/api/test
- */
 require_once __DIR__ . '/../../plugin.php';
 
-header('Content-Type: application/json');
+$pdo = $GLOBALS['pdo'] ?? null;
+if (!($pdo instanceof PDO)) jyavani_push_json(['ok' => false, 'error' => 'Database not available'], 500);
+if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') jyavani_push_json(['ok' => false, 'error' => 'Method not allowed'], 405);
 
-global $pdo;
-if (!isset($pdo)) { http_response_code(500); echo json_encode(['error' => 'DB not available']); exit; }
-jyavani_push_ensure_schema($pdo);
-
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['error' => 'Method not allowed']);
-    exit;
+try {
+    $input = jyavani_push_read_json(2048);
+} catch (LengthException $error) {
+    jyavani_push_json(['ok' => false, 'error' => $error->getMessage()], 413);
+} catch (InvalidArgumentException $error) {
+    jyavani_push_json(['ok' => false, 'error' => $error->getMessage()], 400);
 }
+if (!jyavani_push_csrf_valid($input['csrf_token'] ?? null)) jyavani_push_json(['ok' => false, 'error' => 'Invalid CSRF token'], 403);
 
-$result = jyavani_push_broadcast($pdo, 'Test Notification', 'Push notifications are working! This is a test from Jyavani CMS.', '', '');
-
-echo json_encode(['ok' => true, 'result' => $result]);
+jyavani_push_ensure_schema($pdo);
+$result = jyavani_push_broadcast($pdo, 'Test Notification', 'Push notifications are working! This is a test from Jyavani CMS.');
+$ok = $result['total'] > 0 && $result['failed'] === 0;
+$error = $result['total'] === 0 ? 'There are no active subscribers' : ($result['failed'] > 0 ? 'One or more deliveries failed' : '');
+$status = $ok ? 200 : ($result['total'] === 0 ? 409 : 502);
+jyavani_push_json(['ok' => $ok, 'error' => $error, 'result' => $result], $status);

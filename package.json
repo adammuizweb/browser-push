@@ -1,7 +1,14 @@
 {
   "name": "jyavani-browser-push-runtime",
   "private": true,
-  "version": "1.1.2",
+  "version": "1.2.0",
+  "engines": {
+    "node": ">=16"
+  },
+  "scripts": {
+    "test": "node tests/runtime.test.js",
+    "test:apns": "node tests/apns-connectivity.js"
+  },
   "dependencies": {
     "web-push": "3.4.5"
   }

@@ -11,8 +11,10 @@ $totalSubs = (int)$pdo->query("SELECT COUNT(*) FROM push_subscriptions WHERE is_
 $totalNotifications = (int)$pdo->query("SELECT COUNT(*) FROM push_notifications")->fetchColumn();
 $recentNotifications = $pdo->query("SELECT * FROM push_notifications ORDER BY created_at DESC LIMIT 10")->fetchAll(PDO::FETCH_ASSOC);
 
-$settings = jyavani_push_settings($pdo);
-$vapidConfigured = !empty($settings['push_vapid_public_key']) && !empty($settings['push_vapid_private_key']);
+$vapid = jyavani_push_vapid_settings($pdo);
+$vapidConfigured = jyavani_push_valid_public_key($vapid['public']) && jyavani_push_normalize_private_key($vapid['private']) !== '';
+$runtimeConfigured = is_file(__DIR__ . '/../node_modules/web-push/package.json');
+$csrf = function_exists('csrf_token') ? csrf_token() : '';
 $base = ADMIN_BASE_PATH;
 ?>
 <style>
@@ -55,6 +57,12 @@ $base = ADMIN_BASE_PATH;
   <?php if (!$vapidConfigured): ?>
     <div style="background:#ca8a0420;border:1px solid #ca8a0440;border-radius:var(--radius-md);padding:1rem;margin-bottom:1.5rem">
       <strong>VAPID keys not configured.</strong>       Go to <a href="<?= $base ?>/?page=admin/tools/push-notifications/settings">Settings</a> to add your VAPID public and private keys.
+    </div>
+  <?php endif; ?>
+
+  <?php if (!$runtimeConfigured): ?>
+    <div style="background:#dc262620;border:1px solid #dc262640;border-radius:var(--radius-md);padding:1rem;margin-bottom:1.5rem">
+      <strong>Push delivery runtime is missing.</strong> Run <code>npm ci --omit=dev</code> in the browser-push plugin directory.
     </div>
   <?php endif; ?>
 
@@ -111,18 +119,17 @@ function testPush() {
   var btn = document.getElementById('testBtn');
   btn.disabled = true;
   btn.textContent = 'Sending...';
-  fetch('<?= e($base) ?>/?page=admin/tools/push-notifications/api/test', {
+  fetch('<?= e($base) ?>/?page=admin/tools/push-notifications/api/test&action=test', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: '{}'
-  }).then(function(r){return r.json()}).then(function(d){
+    body: JSON.stringify({csrf_token: <?= json_encode($csrf) ?>})
+  }).then(function(r){return r.json().then(function(d){if(!r.ok||!d.ok)throw new Error(d.error||('HTTP '+r.status));return d})}).then(function(d){
     if (d.ok) {
-      window.NewNotifToast ? window.NewNotifToast.success('Test sent! Sent: ' + d.result.sent + ', Failed: ' + d.result.failed) : alert('Test sent! Sent: ' + d.result.sent + ', Failed: ' + d.result.failed);
-    } else {
-      window.NewNotifToast ? window.NewNotifToast.error(d.error || 'Unknown error') : alert('Error: ' + (d.error || 'Unknown'));
+      if (window.NewNotifToast) window.NewNotifToast.success('Test sent! Sent: ' + d.result.sent + ', Failed: ' + d.result.failed);
     }
   }).catch(function(e){
-    window.NewNotifToast ? window.NewNotifToast.error('Network error: ' + e.message) : alert('Network error: ' + e.message);
+    if (window.NewNotifToast) window.NewNotifToast.error('Network error: ' + e.message);
+    else console.error('[browser-push] Test failed:', e);
   }).finally(function(){
     btn.disabled = false;
     btn.textContent = 'Send Test';

@@ -1,6 +1,6 @@
 {
   "name": "browser-push",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "title": "Push Notifications",
   "description": "Browser push notifications for Jyavani CMS — subscribe from frontend, send from admin dashboard or API.",
   "author": "Adam Muiz",
@@ -9,8 +9,12 @@
   "homepage": "https://github.com/adammuizweb/browser-push",
   "icon": "icon.png",
   "requires": {
+    "jyavani": ">=2.3.60",
     "php": ">=8.1",
-    "extensions": ["pdo", "json", "openssl"]
+    "extensions": ["pdo", "json", "openssl"],
+    "plugins": {
+      "pwa": ">=1.0.0"
+    }
   },
   "setup": {
     "checks": [
@@ -45,18 +49,6 @@
         "roles": ["admin"]
       },
       {
-        "route": "admin/tools/push-notifications/api/subscribe",
-        "file": "admin/api/subscribe.php",
-        "hidden": true,
-        "roles": ["admin"]
-      },
-      {
-        "route": "admin/tools/push-notifications/api/unsubscribe",
-        "file": "admin/api/unsubscribe.php",
-        "hidden": true,
-        "roles": ["admin"]
-      },
-      {
         "route": "admin/tools/push-notifications/api/send",
         "file": "admin/api/send.php",
         "hidden": true,
@@ -80,12 +72,14 @@
     ]
   },
   "assets": {
-    "css": ["/static/plugins/browser-push/push-admin.css"],
+    "css": ["/static/plugins/browser-push/push-admin.css?v=1.2.0"],
     "js": []
   },
   "static": {
     "copy": [
-      {"from": "assets/css/push-admin.css", "to": "static/plugins/browser-push/push-admin.css"}
+      {"from": "assets/css/push-admin.css", "to": "static/plugins/browser-push/push-admin.css"},
+      {"from": "public/push.js", "to": "static/plugins/browser-push/push.js"},
+      {"from": "icon.png", "to": "static/plugins/browser-push/notification.png"}
     ]
   }
 }
