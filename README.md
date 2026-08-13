@@ -1,6 +1,6 @@
 # Browser Push
 
-Browser Push 1.2.0 provides VAPID Web Push notifications for Jyavani CMS. The PWA plugin owns the root service worker and its lifecycle; Browser Push eagerly invokes that worker's idempotent registration and appends only push, notification-click, and subscription-refresh handlers.
+Browser Push 1.2.1 provides VAPID Web Push notifications for Jyavani CMS. The PWA plugin owns the root service worker and its lifecycle; Browser Push eagerly invokes that worker's idempotent registration and appends only push, notification-click, and subscription-refresh handlers.
 
 ## Requirements
 
@@ -59,7 +59,7 @@ Public mutations require same-origin browser request metadata matched against th
 
 Upgrades replace the old 200-character prefix uniqueness index with a full SHA-256 endpoint identity, merge exact duplicate rows, and run a one-time quarantine of invalid legacy endpoints. Every delivery validates the stored endpoint and keys again and deactivates invalid rows before Node.js receives them.
 
-Notification click targets must be normalized same-origin absolute paths such as `/article/` or `/search/?q=push`. Fragments, backslashes, control bytes, dot traversal, encoded backslashes/traversal, malformed percent encoding, and cross-origin URLs are rejected; invalid targets open the site root.
+Notification click targets must be normalized same-origin paths such as `/article/` or absolute URLs such as `https://example.com/search/?q=push`. Fragments, backslashes, control bytes, dot traversal, encoded backslashes/traversal, malformed percent encoding, and cross-origin URLs are rejected; invalid targets open the site root.
 
 ## Admin JSON API
 

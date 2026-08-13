@@ -1,4 +1,4 @@
-/* Jyavani Browser Push service-worker handlers v1.2.0 */
+/* Jyavani Browser Push service-worker handlers v1.2.1 */
 (function () {
   'use strict';
 
@@ -19,10 +19,22 @@
   }
 
   function safeLocalUrl(value) {
-    if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')
-      || value.includes('\\') || value.includes('#') || /[\u0000-\u0020\u007f]/.test(value)) {
+    if (typeof value !== 'string' || value.includes('\\') || value.includes('#')
+      || /[\u0000-\u0020\u007f]/.test(value)) {
       return self.location.origin + '/';
     }
+    if (!value.startsWith('/')) {
+      try {
+        const absolute = new URL(value);
+        if (absolute.origin !== self.location.origin || !['http:', 'https:'].includes(absolute.protocol)) {
+          return self.location.origin + '/';
+        }
+        value = `${absolute.pathname}${absolute.search}`;
+      } catch (error) {
+        return self.location.origin + '/';
+      }
+    }
+    if (value.startsWith('//')) return self.location.origin + '/';
     let probe = value;
     for (let index = 0; index < 4; index++) {
       if (/%(?:0[0-9a-f]|1[0-9a-f]|2e|5c|7f)/i.test(probe)) return self.location.origin + '/';

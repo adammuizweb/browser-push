@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 const webpush = require('web-push');
 
 function decode(value) {
@@ -46,4 +47,59 @@ assert.match(api, /endpoint:' \+|endpoint:' \./, 'rate limiting must include end
 assert.match(plugin, /settings_get\(\$pdo, 'site_url'/, 'origin must use the trusted CMS canonical URL');
 assert.doesNotMatch(api, /HTTP_X_FORWARDED|HTTP_HOST/, 'origin checks must not trust forwarded or Host headers');
 
-console.log('runtime tests passed');
+const handlers = {};
+let notificationOptions = null;
+let openedUrl = null;
+const workerContext = {
+  URL,
+  Uint8Array,
+  Promise,
+  decodeURIComponent,
+  encodeURIComponent,
+  self: {
+    JYAVANI_PUSH_CONFIG: {},
+    location: { origin: 'https://example.test' },
+    addEventListener(type, handler) { handlers[type] = handler; },
+    registration: {
+      showNotification(title, options) {
+        notificationOptions = options;
+        return Promise.resolve();
+      },
+    },
+  },
+  clients: {
+    matchAll() { return Promise.resolve([]); },
+    openWindow(url) { openedUrl = url; return Promise.resolve(); },
+  },
+};
+vm.runInNewContext(worker, workerContext);
+let pushWait;
+handlers.push({
+  data: { json: () => ({ title: 'Article', url: '/article/' }) },
+  waitUntil(promise) { pushWait = promise; },
+});
+
+(async () => {
+  await pushWait;
+  assert.equal(notificationOptions.data.url, 'https://example.test/article/');
+  let clickWait;
+  handlers.notificationclick({
+    notification: { data: notificationOptions.data, close() {} },
+    waitUntil(promise) { clickWait = promise; },
+  });
+  await clickWait;
+  assert.equal(openedUrl, 'https://example.test/article/', 'notification click must preserve the article URL');
+
+  openedUrl = null;
+  handlers.notificationclick({
+    notification: { data: { url: 'https://evil.test/article/' }, close() {} },
+    waitUntil(promise) { clickWait = promise; },
+  });
+  await clickWait;
+  assert.equal(openedUrl, 'https://example.test/', 'notification click must reject external URLs');
+
+  console.log('runtime tests passed');
+})().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});
