@@ -5,6 +5,7 @@ if (!defined('DASHBOARD_CONTEXT')) { http_response_code(403); exit('Forbidden');
 
 $pdo = $GLOBALS['pdo'] ?? null;
 if (!($pdo instanceof PDO)) { http_response_code(500); exit('Database not available'); }
+adiwira_require_permission($pdo, 'plugin.browser-push.settings.manage', false);
 jyavani_push_ensure_schema($pdo);
 $base = ADMIN_BASE_PATH;
 $csrf = function_exists('csrf_token') ? csrf_token() : '';

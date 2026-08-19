@@ -1,6 +1,6 @@
 {
   "name": "browser-push",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "title": "Push Notifications",
   "description": "Browser push notifications for Jyavani CMS — subscribe from frontend, send from admin dashboard or API.",
   "author": "Adam Muiz",
@@ -9,9 +9,9 @@
   "homepage": "https://github.com/adammuizweb/browser-push",
   "icon": "icon.png",
   "requires": {
-    "jyavani": ">=2.3.60",
+    "jyavani": ">=2.3.74",
     "php": ">=8.1",
-    "extensions": ["pdo", "json", "openssl"],
+    "extensions": ["pdo", "json", "openssl", "mbstring"],
     "plugins": {
       "pwa": ">=1.0.0"
     }
@@ -26,12 +26,36 @@
       }
     ]
   },
+  "permissions": [
+    {
+      "key": "plugin.browser-push.notifications.read",
+      "label": "View Push Notification Reports",
+      "supports_scope": false,
+      "default_roles": ["admin"],
+      "delegable": false
+    },
+    {
+      "key": "plugin.browser-push.notifications.send",
+      "label": "Send Push Notifications",
+      "supports_scope": false,
+      "default_roles": ["admin"],
+      "delegable": false
+    },
+    {
+      "key": "plugin.browser-push.settings.manage",
+      "label": "Manage Push Notification Settings",
+      "supports_scope": false,
+      "default_roles": ["admin"],
+      "delegable": false
+    }
+  ],
   "admin": {
     "pages": [
       {
         "route": "admin/tools/push-notifications",
         "file": "admin/index.php",
         "title": "Push Notifications",
+        "permission": "plugin.browser-push.notifications.read",
         "roles": ["admin"]
       },
       {
@@ -39,6 +63,7 @@
         "file": "admin/send.php",
         "title": "Send Notification",
         "hidden": true,
+        "permission": "plugin.browser-push.notifications.send",
         "roles": ["admin"]
       },
       {
@@ -46,18 +71,21 @@
         "file": "admin/settings.php",
         "title": "Push Settings",
         "hidden": true,
+        "permission": "plugin.browser-push.settings.manage",
         "roles": ["admin"]
       },
       {
         "route": "admin/tools/push-notifications/api/send",
         "file": "admin/api/send.php",
         "hidden": true,
+        "permission": "plugin.browser-push.notifications.send",
         "roles": ["admin"]
       },
       {
         "route": "admin/tools/push-notifications/api/test",
         "file": "admin/api/test.php",
         "hidden": true,
+        "permission": "plugin.browser-push.notifications.send",
         "roles": ["admin"]
       }
     ],
@@ -72,7 +100,7 @@
     ]
   },
   "assets": {
-    "css": ["/static/plugins/browser-push/push-admin.css?v=1.2.1"],
+    "css": ["/static/plugins/browser-push/push-admin.css?v=1.2.2"],
     "js": []
   },
   "static": {

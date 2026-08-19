@@ -1,10 +1,10 @@
 # Browser Push
 
-Browser Push 1.2.1 provides VAPID Web Push notifications for Jyavani CMS. The PWA plugin owns the root service worker and its lifecycle; Browser Push eagerly invokes that worker's idempotent registration and appends only push, notification-click, and subscription-refresh handlers.
+Browser Push 1.2.2 provides VAPID Web Push notifications for Jyavani CMS. The PWA plugin owns the root service worker and its lifecycle; Browser Push eagerly invokes that worker's idempotent registration and appends only push, notification-click, and subscription-refresh handlers.
 
 ## Requirements
 
-- Jyavani 2.3.60 or newer
+- Jyavani 2.3.74 or newer
 - PWA plugin 1.0.0 or newer, active and configured
 - PHP 8.1+ with PDO, JSON, and OpenSSL
 - Node.js 16+ and npm

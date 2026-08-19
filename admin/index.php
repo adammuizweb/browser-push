@@ -4,6 +4,9 @@ require_once __DIR__ . '/../plugin.php';
 if (!defined('DASHBOARD_CONTEXT')) { http_response_code(403); exit('Forbidden'); }
 
 global $pdo;
+[$uid] = adiwira_require_permission($pdo, 'plugin.browser-push.notifications.read', false);
+$canSend = user_can($pdo, $uid, 'plugin.browser-push.notifications.send');
+$canManage = user_can($pdo, $uid, 'plugin.browser-push.settings.manage');
 jyavani_push_ensure_schema($pdo);
 
 // Stats
@@ -46,17 +49,18 @@ $base = ADMIN_BASE_PATH;
       <p style="margin:.25rem 0 0;color:var(--muted);font-size:.875rem">Browser push notifications via Web Push API</p>
     </div>
     <div style="display:flex;gap:.5rem">
-      <?php if (!$vapidConfigured): ?>
+      <?php if (!$vapidConfigured && $canManage): ?>
         <a href="<?= $base ?>/?page=admin/tools/push-notifications/settings" class="push-btn primary">Configure VAPID Keys</a>
       <?php endif; ?>
-      <a href="<?= $base ?>/?page=admin/tools/push-notifications/send" class="push-btn primary"><?= svg_ico('send') ?> Send Notification</a>
-      <a href="<?= $base ?>/?page=admin/tools/push-notifications/settings" class="push-btn"><?= svg_ico('cog') ?> Settings</a>
+      <?php if ($canSend): ?><a href="<?= $base ?>/?page=admin/tools/push-notifications/send" class="push-btn primary"><?= svg_ico('send') ?> Send Notification</a><?php endif; ?>
+      <?php if ($canManage): ?><a href="<?= $base ?>/?page=admin/tools/push-notifications/settings" class="push-btn"><?= svg_ico('cog') ?> Settings</a><?php endif; ?>
     </div>
   </div>
 
   <?php if (!$vapidConfigured): ?>
     <div style="background:#ca8a0420;border:1px solid #ca8a0440;border-radius:var(--radius-md);padding:1rem;margin-bottom:1.5rem">
-      <strong>VAPID keys not configured.</strong>       Go to <a href="<?= $base ?>/?page=admin/tools/push-notifications/settings">Settings</a> to add your VAPID public and private keys.
+      <strong>VAPID keys not configured.</strong>
+      <?php if ($canManage): ?>Go to <a href="<?= $base ?>/?page=admin/tools/push-notifications/settings">Settings</a> to add your VAPID public and private keys.<?php endif; ?>
     </div>
   <?php endif; ?>
 
@@ -81,9 +85,9 @@ $base = ADMIN_BASE_PATH;
     </div>
   </div>
 
-  <div class="push-actions">
+  <?php if ($canSend): ?><div class="push-actions">
     <button onclick="testPush()" class="push-btn" id="testBtn"><?= svg_ico('zap') ?> Send Test</button>
-  </div>
+  </div><?php endif; ?>
 
   <h3 style="margin-bottom:.75rem">Recent Notifications</h3>
   <?php if (empty($recentNotifications)): ?>
@@ -114,7 +118,7 @@ $base = ADMIN_BASE_PATH;
   <?php endif; ?>
 </div>
 
-<script>
+<?php if ($canSend): ?><script>
 function testPush() {
   var btn = document.getElementById('testBtn');
   btn.disabled = true;
@@ -135,4 +139,4 @@ function testPush() {
     btn.textContent = 'Send Test';
   });
 }
-</script>
+</script><?php endif; ?>

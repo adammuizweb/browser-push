@@ -4,6 +4,7 @@ require_once __DIR__ . '/../../plugin.php';
 
 $pdo = $GLOBALS['pdo'] ?? null;
 if (!($pdo instanceof PDO)) jyavani_push_json(['ok' => false, 'error' => 'Database not available'], 500);
+adiwira_require_permission($pdo, 'plugin.browser-push.notifications.send', true);
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') jyavani_push_json(['ok' => false, 'error' => 'Method not allowed'], 405);
 
 try {

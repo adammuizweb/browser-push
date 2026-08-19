@@ -33,8 +33,23 @@ assert.doesNotMatch(client.match(/async function currentState[\s\S]*?\n  }/)[0],
 assert.match(worker, /subscriptionUsesKey\(subscription, config\.vapidKey\)/, 'subscription refresh must retain the configured VAPID identity');
 assert.equal(pkg.dependencies['web-push'], '3.4.5');
 assert.equal(pkg.scripts['test:apns'], 'node tests/apns-connectivity.js');
+assert.equal(manifest.version, '1.2.2', 'manifest must advertise the source release version');
+assert.equal(pkg.version, manifest.version, 'runtime package and plugin versions must match');
+assert.equal(manifest.requires.jyavani, '>=2.3.74', 'manifest must require permission policy metadata support');
 assert.equal(manifest.setup.checks.length, 1);
 assert.equal(manifest.setup.checks[0].type, 'file_exists');
+const permissions = new Map(manifest.permissions.map(permission => [permission.key, permission]));
+for (const key of [
+  'plugin.browser-push.notifications.read',
+  'plugin.browser-push.notifications.send',
+  'plugin.browser-push.settings.manage',
+]) {
+  assert.deepEqual(permissions.get(key).default_roles, ['admin'], `${key} must default to admin`);
+  assert.equal(permissions.get(key).delegable, false, `${key} must be nondelegable`);
+}
+for (const page of manifest.admin.pages) {
+  assert.deepEqual(page.roles, permissions.get(page.permission).default_roles, `${page.route} roles must match its permission defaults`);
+}
 assert.doesNotMatch(plugin, /\$env\[['"]NODE_OPTIONS['"]\]\s*=/, 'PHP must preserve operator NODE_OPTIONS');
 assert.match(fs.readFileSync(path.join(root, 'lib', 'push.js'), 'utf8'), /typeof dns\.setDefaultResultOrder === 'function'/);
 assert.match(fs.readFileSync(path.join(root, 'lib', 'push.js'), 'utf8'), /typeof net\.setDefaultAutoSelectFamily === 'function'/);
