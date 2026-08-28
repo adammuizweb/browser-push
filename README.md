@@ -1,6 +1,6 @@
 # Browser Push
 
-Browser Push 1.2.2 provides VAPID Web Push notifications for Jyavani CMS. The PWA plugin owns the root service worker and its lifecycle; Browser Push eagerly invokes that worker's idempotent registration and appends only push, notification-click, and subscription-refresh handlers.
+Browser Push 1.2.3 provides VAPID Web Push notifications for Jyavani CMS. The PWA plugin owns the root service worker and its lifecycle; Browser Push eagerly invokes that worker's idempotent registration and appends only push, notification-click, and subscription-refresh handlers.
 
 ## Requirements
 
@@ -14,10 +14,10 @@ The plugin manifest declares Jyavani and PWA under `requires`. The plugin detail
 
 ## Install
 
-Jyavani 2.3.60 runs the executable `install.sh` after ZIP upload, Plugin Store installation, and Plugin Store updates, so packaged installs run `npm ci --omit=dev` automatically. For a source checkout or manual installation, run this in the plugin directory:
+Jyavani 2.3.60 runs the executable `install.sh` after ZIP upload, Plugin Store installation, and Plugin Store updates, so packaged installs run `npm ci --omit=dev --no-bin-links` automatically. Core rejects symlinks in installed plugin trees, and this plugin does not use the `web-push` command-line shim. For a source checkout or manual installation, run this in the plugin directory:
 
 ```bash
-npm ci --omit=dev
+npm ci --omit=dev --no-bin-links
 ```
 
 The runtime dependency is pinned to `web-push` 3.4.5 in both `package.json` and `package-lock.json`. This intentionally preserves the repository's documented Apple APNs compatibility; later releases previously regressed Apple delivery here. Push delivery fails closed and the dashboard displays a warning if the dependency is absent. Set `BROWSER_PUSH_NODE_BINARY` when `node` is not on the PHP process's `PATH`.

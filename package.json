@@ -1,7 +1,7 @@
 {
   "name": "jyavani-browser-push-runtime",
   "private": true,
-  "version": "1.2.2",
+  "version": "1.2.3",
   "engines": {
     "node": ">=16"
   },

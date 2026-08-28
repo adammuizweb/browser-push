@@ -1,6 +1,6 @@
 {
   "name": "browser-push",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "title": "Push Notifications",
   "description": "Browser push notifications for Jyavani CMS — subscribe from frontend, send from admin dashboard or API.",
   "author": "Adam Muiz",
@@ -22,7 +22,7 @@
         "type": "file_exists",
         "path": "node_modules/web-push/package.json",
         "label": "Node.js web-push dependency",
-        "doc": "Run npm ci --omit=dev in the plugin directory."
+        "doc": "Run npm ci --omit=dev --no-bin-links in the plugin directory."
       }
     ]
   },
@@ -100,7 +100,7 @@
     ]
   },
   "assets": {
-    "css": ["/static/plugins/browser-push/push-admin.css?v=1.2.2"],
+    "css": ["/static/plugins/browser-push/push-admin.css?v=1.2.3"],
     "js": []
   },
   "static": {

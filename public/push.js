@@ -1,4 +1,4 @@
-/* Jyavani Browser Push frontend client v1.2.2 */
+/* Jyavani Browser Push frontend client v1.2.3 */
 (function () {
   'use strict';
 

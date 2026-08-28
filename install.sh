@@ -7,4 +7,4 @@ command -v npm >/dev/null 2>&1 || { printf '%s\n' 'browser-push requires npm.' >
 
 node -e 'const major = Number(process.versions.node.split(".")[0]); process.exit(major >= 16 ? 0 : 1)' \
   || { printf '%s\n' 'browser-push requires Node.js 16 or newer.' >&2; exit 1; }
-npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+npm ci --omit=dev --no-bin-links --ignore-scripts --no-audit --no-fund
