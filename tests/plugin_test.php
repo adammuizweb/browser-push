@@ -23,6 +23,16 @@ $private = rtrim(strtr(base64_encode(str_repeat("\x02", 32)), '+/', '-_'), '=');
 $auth = rtrim(strtr(base64_encode(str_repeat("\x03", 16)), '+/', '-_'), '=');
 $pdo = new BrowserPushTestPdo();
 
+$manifest = json_decode((string)file_get_contents(__DIR__ . '/../plugin.json'), true, 32, JSON_THROW_ON_ERROR);
+$package = json_decode((string)file_get_contents(__DIR__ . '/../package.json'), true, 32, JSON_THROW_ON_ERROR);
+$lock = json_decode((string)file_get_contents(__DIR__ . '/../package-lock.json'), true, 64, JSON_THROW_ON_ERROR);
+check(($manifest['version'] ?? null) === '1.2.4' && ($package['version'] ?? null) === '1.2.4'
+    && ($lock['version'] ?? null) === '1.2.4' && ($lock['packages']['']['version'] ?? null) === '1.2.4',
+    'Plugin and Node runtime versions are not aligned');
+check(is_file(__DIR__ . '/../node_modules/web-push/package.json')
+    && !str_contains((string)file_get_contents(__DIR__ . '/../install.sh'), 'npm ci'),
+    'Release must vendor its immutable production Node runtime');
+
 check(isset($GLOBALS['test_actions']['init']), 'Core init worker registration hook was not registered');
 foreach ($GLOBALS['test_actions']['init'] as $callbacks) foreach ($callbacks as $callback) $callback();
 ob_start();
