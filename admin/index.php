@@ -20,109 +20,105 @@ $runtimeConfigured = is_file(__DIR__ . '/../node_modules/web-push/package.json')
 $csrf = function_exists('csrf_token') ? csrf_token() : '';
 $base = ADMIN_BASE_PATH;
 ?>
-<style>
-.push-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:1.5rem}
-.push-stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:1.25rem;text-align:center}
-.push-stat .number{font-size:2rem;font-weight:700;color:var(--accent)}
-.push-stat .label{color:var(--muted);font-size:.85rem;margin-top:.25rem}
-.push-actions{display:flex;gap:.75rem;margin-bottom:1.5rem;flex-wrap:wrap}
-.push-btn{padding:.5rem 1rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:.875rem;text-decoration:none;display:inline-flex;align-items:center;gap:.5rem}
-.push-btn:hover{background:var(--bg);border-color:var(--accent)}
-.push-btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
-.push-btn.primary:hover{opacity:.9}
-.push-table{width:100%;border-collapse:collapse;font-size:.875rem}
-.push-table th,.push-table td{padding:.5rem .75rem;text-align:left;border-bottom:1px solid var(--border)}
-.push-table th{color:var(--muted);font-weight:600;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}
-.badge{display:inline-block;padding:.15rem .5rem;border-radius:9999px;font-size:.75rem;font-weight:600}
-.badge-green{background:#16a34a20;color:#16a34a}
-.badge-red{background:#dc262620;color:#dc2626}
-.badge-yellow{background:#ca8a0420;color:#ca8a04}
-.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:.5rem}
-.status-dot.green{background:#16a34a}
-.status-dot.red{background:#dc2626}
-</style>
-
-<div style="padding:1.5rem">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
-    <div>
-      <h2 style="margin:0;font-size:1.25rem">Push Notifications</h2>
-      <p style="margin:.25rem 0 0;color:var(--muted);font-size:.875rem">Browser push notifications via Web Push API</p>
+<div class="push-admin">
+  <header class="push-hero">
+    <div class="push-hero__intro">
+      <span class="push-hero__mark" aria-hidden="true"><?= svg_ico('bell') ?></span>
+      <div>
+        <span class="push-eyebrow">Audience delivery</span>
+        <h2>Push Notifications</h2>
+        <p>Reach subscribed readers directly from your Jyavani dashboard.</p>
+      </div>
     </div>
-    <div style="display:flex;gap:.5rem">
+    <div class="push-hero__actions">
       <?php if (!$vapidConfigured && $canManage): ?>
-        <a href="<?= $base ?>/?page=admin/tools/push-notifications/settings" class="push-btn primary">Configure VAPID Keys</a>
+        <a href="<?= e($base) ?>/?page=admin/tools/push-notifications/settings" class="push-btn push-btn--primary"><?= svg_ico('lock') ?> Configure VAPID Keys</a>
       <?php endif; ?>
-      <?php if ($canSend): ?><a href="<?= $base ?>/?page=admin/tools/push-notifications/send" class="push-btn primary"><?= svg_ico('send') ?> Send Notification</a><?php endif; ?>
-      <?php if ($canManage): ?><a href="<?= $base ?>/?page=admin/tools/push-notifications/settings" class="push-btn"><?= svg_ico('cog') ?> Settings</a><?php endif; ?>
+      <?php if ($canSend): ?><a href="<?= e($base) ?>/?page=admin/tools/push-notifications/send" class="push-btn push-btn--primary"><?= svg_ico('bell') ?> Send Notification</a><?php endif; ?>
+      <?php if ($canManage): ?><a href="<?= e($base) ?>/?page=admin/tools/push-notifications/settings" class="push-btn"><?= svg_ico('cog') ?> Settings</a><?php endif; ?>
     </div>
-  </div>
+  </header>
 
   <?php if (!$vapidConfigured): ?>
-    <div style="background:#ca8a0420;border:1px solid #ca8a0440;border-radius:var(--radius-md);padding:1rem;margin-bottom:1.5rem">
-      <strong>VAPID keys not configured.</strong>
-      <?php if ($canManage): ?>Go to <a href="<?= $base ?>/?page=admin/tools/push-notifications/settings">Settings</a> to add your VAPID public and private keys.<?php endif; ?>
+    <div class="push-notice push-notice--warning" role="status">
+      <span class="push-notice__icon" aria-hidden="true"><?= svg_ico('lock') ?></span>
+      <div><strong>VAPID keys are not configured.</strong>
+      <?php if ($canManage): ?><span>Open <a href="<?= e($base) ?>/?page=admin/tools/push-notifications/settings">Settings</a> to connect secure browser delivery.</span><?php endif; ?></div>
     </div>
   <?php endif; ?>
 
   <?php if (!$runtimeConfigured): ?>
-    <div style="background:#dc262620;border:1px solid #dc262640;border-radius:var(--radius-md);padding:1rem;margin-bottom:1.5rem">
-      <strong>Push delivery runtime is missing.</strong> Run <code>npm ci --omit=dev</code> in the browser-push plugin directory.
+    <div class="push-notice push-notice--danger" role="alert">
+      <span class="push-notice__icon" aria-hidden="true"><?= svg_ico('zap') ?></span>
+      <div><strong>Push delivery runtime is missing.</strong><span>Run <code>npm ci --omit=dev</code> in the browser-push plugin directory.</span></div>
     </div>
   <?php endif; ?>
 
-  <div class="push-stats">
-    <div class="push-stat">
-      <div class="number"><?= $totalSubs ?></div>
-      <div class="label">Active Subscribers</div>
-    </div>
-    <div class="push-stat">
-      <div class="number"><?= $totalNotifications ?></div>
-      <div class="label">Notifications Sent</div>
-    </div>
-    <div class="push-stat">
-      <div class="number"><?= $vapidConfigured ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-red">Inactive</span>' ?></div>
-      <div class="label">VAPID Status</div>
-    </div>
-  </div>
+  <section class="push-stats" aria-label="Push notification overview">
+    <article class="push-stat">
+      <span class="push-stat__icon" aria-hidden="true"><?= svg_ico('users') ?></span>
+      <div><strong class="push-stat__value"><?= $totalSubs ?></strong><span class="push-stat__label">Active subscribers</span></div>
+    </article>
+    <article class="push-stat">
+      <span class="push-stat__icon push-stat__icon--violet" aria-hidden="true"><?= svg_ico('bell') ?></span>
+      <div><strong class="push-stat__value"><?= $totalNotifications ?></strong><span class="push-stat__label">Notifications sent</span></div>
+    </article>
+    <article class="push-stat">
+      <span class="push-stat__icon <?= $vapidConfigured ? 'push-stat__icon--success' : 'push-stat__icon--warning' ?>" aria-hidden="true"><?= svg_ico('lock') ?></span>
+      <div><strong class="push-stat__value push-stat__value--status"><?= $vapidConfigured ? 'Ready' : 'Setup needed' ?></strong><span class="push-stat__label">Secure delivery</span></div>
+    </article>
+  </section>
 
-  <?php if ($canSend): ?><div class="push-actions">
-    <button onclick="testPush()" class="push-btn" id="testBtn"><?= svg_ico('zap') ?> Send Test</button>
-  </div><?php endif; ?>
-
-  <h3 style="margin-bottom:.75rem">Recent Notifications</h3>
-  <?php if (empty($recentNotifications)): ?>
-    <p style="color:var(--muted)">No notifications sent yet.</p>
-  <?php else: ?>
-    <table class="push-table">
-      <thead>
-        <tr>
-          <th>Title</th>
-          <th>Body</th>
-          <th>Sent</th>
-          <th>Failed</th>
-          <th>Date</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php foreach ($recentNotifications as $n): ?>
-          <tr>
-            <td><?= e($n['title']) ?></td>
-            <td><?= e(mb_strimwidth($n['body'], 0, 60, '...')) ?></td>
-            <td><span class="badge badge-green"><?= $n['sent_count'] ?></span></td>
-            <td><?= $n['fail_count'] > 0 ? '<span class="badge badge-red">' . $n['fail_count'] . '</span>' : '0' ?></td>
-            <td><?= e($n['created_at']) ?></td>
-          </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
-  <?php endif; ?>
+  <section class="push-panel">
+    <div class="push-panel__header">
+      <div>
+        <span class="push-eyebrow">Delivery history</span>
+        <h3>Recent Notifications</h3>
+        <p>Your latest broadcasts and delivery results.</p>
+      </div>
+      <?php if ($canSend): ?><button onclick="testPush()" class="push-btn push-btn--quiet" id="testBtn"><?= svg_ico('zap') ?><span id="testBtnLabel">Send Test</span></button><?php endif; ?>
+    </div>
+    <?php if (empty($recentNotifications)): ?>
+      <div class="push-empty">
+        <span class="push-empty__icon" aria-hidden="true"><?= svg_ico('bell') ?></span>
+        <h4>No notifications yet</h4>
+        <p>Your delivery history will appear here after the first broadcast.</p>
+      </div>
+    <?php else: ?>
+      <div class="push-table-wrap">
+        <table class="push-table">
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Body</th>
+              <th>Sent</th>
+              <th>Failed</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($recentNotifications as $n): ?>
+              <tr>
+                <td data-label="Title"><strong class="push-table__title"><?= e($n['title']) ?></strong></td>
+                <td data-label="Body" class="push-table__body"><?= e(mb_strimwidth($n['body'], 0, 60, '...')) ?></td>
+                <td data-label="Sent"><span class="push-badge push-badge--success"><?= (int)$n['sent_count'] ?></span></td>
+                <td data-label="Failed"><?= (int)$n['fail_count'] > 0 ? '<span class="push-badge push-badge--danger">' . (int)$n['fail_count'] . '</span>' : '<span class="push-table__zero">0</span>' ?></td>
+                <td data-label="Date"><span class="push-table__date"><?= e($n['created_at']) ?></span></td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    <?php endif; ?>
+  </section>
 </div>
 
 <?php if ($canSend): ?><script>
 function testPush() {
   var btn = document.getElementById('testBtn');
+  var label = document.getElementById('testBtnLabel');
   btn.disabled = true;
-  btn.textContent = 'Sending...';
+  label.textContent = 'Sending...';
   fetch('<?= e($base) ?>/?page=admin/tools/push-notifications/api/test&action=test', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -136,7 +132,7 @@ function testPush() {
     else console.error('[browser-push] Test failed:', e);
   }).finally(function(){
     btn.disabled = false;
-    btn.textContent = 'Send Test';
+    label.textContent = 'Send Test';
   });
 }
 </script><?php endif; ?>

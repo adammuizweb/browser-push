@@ -26,8 +26,8 @@ $pdo = new BrowserPushTestPdo();
 $manifest = json_decode((string)file_get_contents(__DIR__ . '/../plugin.json'), true, 32, JSON_THROW_ON_ERROR);
 $package = json_decode((string)file_get_contents(__DIR__ . '/../package.json'), true, 32, JSON_THROW_ON_ERROR);
 $lock = json_decode((string)file_get_contents(__DIR__ . '/../package-lock.json'), true, 64, JSON_THROW_ON_ERROR);
-check(($manifest['version'] ?? null) === '1.2.4' && ($package['version'] ?? null) === '1.2.4'
-    && ($lock['version'] ?? null) === '1.2.4' && ($lock['packages']['']['version'] ?? null) === '1.2.4',
+check(($manifest['version'] ?? null) === '1.2.5' && ($package['version'] ?? null) === '1.2.5'
+    && ($lock['version'] ?? null) === '1.2.5' && ($lock['packages']['']['version'] ?? null) === '1.2.5',
     'Plugin and Node runtime versions are not aligned');
 check(is_file(__DIR__ . '/../node_modules/web-push/package.json')
     && !str_contains((string)file_get_contents(__DIR__ . '/../install.sh'), 'npm ci'),

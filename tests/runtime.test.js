@@ -34,8 +34,10 @@ assert.doesNotMatch(client.match(/async function currentState[\s\S]*?\n  }/)[0],
 assert.match(worker, /subscriptionUsesKey\(subscription, config\.vapidKey\)/, 'subscription refresh must retain the configured VAPID identity');
 assert.equal(pkg.dependencies['web-push'], '3.4.5');
 assert.equal(pkg.scripts['test:apns'], 'node tests/apns-connectivity.js');
-assert.equal(manifest.version, '1.2.4', 'manifest must advertise the source release version');
+assert.equal(manifest.version, '1.2.5', 'manifest must advertise the source release version');
 assert.equal(pkg.version, manifest.version, 'runtime package and plugin versions must match');
+assert.equal(manifest.assets.css[0], `/static/plugins/browser-push/push-admin.css?v=${manifest.version}`, 'admin CSS cache key must match the plugin version');
+assert.match(plugin, new RegExp(`push\\.js\\?v=${manifest.version.replaceAll('.', '\\.')}['"]`), 'frontend client cache key must match the plugin version');
 assert.doesNotMatch(installer, /npm\s+ci/, 'installer must not mutate manifest-bound production dependencies');
 assert.match(installer, /node_modules\/web-push\/package\.json/, 'installer must verify the vendored production runtime');
 assert.equal(manifest.requires.jyavani, '>=2.3.74', 'manifest must require permission policy metadata support');

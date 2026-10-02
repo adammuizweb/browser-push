@@ -39,45 +39,61 @@ $privateConfigured = jyavani_push_env('BROWSER_PUSH_VAPID_PRIVATE_KEY') !== '' |
 $pwaIcon = jyavani_push_notification_icon($settings);
 ?>
 
-<div style="padding:1.5rem;max-width:600px">
-  <div style="margin-bottom:1.5rem">
-    <a href="<?= e($base) ?>/?page=admin/tools/push-notifications" style="color:var(--muted);text-decoration:none;font-size:.875rem">&larr; Back to Push Notifications</a>
-    <h2 style="margin:.5rem 0 0">Push Notification Settings</h2>
-  </div>
+<div class="push-admin push-admin--narrow">
+  <header class="push-page-head">
+    <a href="<?= e($base) ?>/?page=admin/tools/push-notifications" class="push-back"><?= svg_ico('arrow-left') ?> <span>Push Notifications</span></a>
+    <span class="push-eyebrow">Delivery identity</span>
+    <h2>Push Notification Settings</h2>
+    <p>Configure the VAPID identity browsers use to trust your notifications.</p>
+  </header>
 
   <?php if ($success): ?>
-    <div style="background:#16a34a20;border:1px solid #16a34a40;border-radius:var(--radius-md);padding:1rem;margin-bottom:1rem;color:#16a34a"><?= e($success) ?></div>
+    <div class="push-notice push-notice--success" role="status"><span class="push-notice__icon" aria-hidden="true"><?= svg_ico('lock') ?></span><div><strong>Settings updated</strong><span><?= e($success) ?></span></div></div>
   <?php endif; ?>
   <?php if ($error): ?>
-    <div style="background:#dc262620;border:1px solid #dc262640;border-radius:var(--radius-md);padding:1rem;margin-bottom:1rem;color:#dc2626"><?= e($error) ?></div>
+    <div class="push-notice push-notice--danger" role="alert"><span class="push-notice__icon" aria-hidden="true"><?= svg_ico('zap') ?></span><div><strong>Settings not saved</strong><span><?= e($error) ?></span></div></div>
   <?php endif; ?>
 
-  <form method="POST" style="display:flex;flex-direction:column;gap:1rem">
-    <input type="hidden" name="csrf_token" value="<?= e($csrf) ?>">
-    <div>
-      <label style="display:block;font-weight:600;margin-bottom:.25rem">VAPID Public Key</label>
-      <input type="text" name="vapid_public_key" maxlength="128" placeholder="Base64url public key from web-push"
-        style="width:100%;padding:.5rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:monospace"
-        value="<?= e($settings['push_vapid_public_key'] ?? '') ?>">
-    </div>
-    <div>
-      <label style="display:block;font-weight:600;margin-bottom:.25rem">VAPID Private Key</label>
-      <input type="password" name="vapid_private_key" maxlength="128" autocomplete="new-password"
-        placeholder="<?= $privateConfigured ? 'Configured; leave blank to keep it' : 'Base64url private key from web-push' ?>"
-        style="width:100%;padding:.5rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:monospace" value="">
-    </div>
-    <div>
-      <label style="display:block;font-weight:600;margin-bottom:.25rem">VAPID Subject</label>
-      <input type="text" name="vapid_subject" maxlength="255" placeholder="mailto:admin@example.com"
-        style="width:100%;padding:.5rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text)"
-        value="<?= e($settings['push_vapid_subject'] ?? 'mailto:admin@example.com') ?>">
-    </div>
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:1rem">
-      <p style="margin:0 0 .5rem;font-size:.875rem;color:var(--muted)"><strong>Notification icon:</strong> <code><?= e($pwaIcon) ?></code>. Browser Push uses the PWA plugin icon settings and falls back to its bundled PNG.</p>
-      <p style="margin:0;font-size:.875rem;color:var(--muted)"><strong>Generate keys:</strong> Run <code>php plugins/browser-push/generate-vapid.php</code>. You may instead set <code>BROWSER_PUSH_VAPID_PUBLIC_KEY</code>, <code>BROWSER_PUSH_VAPID_PRIVATE_KEY</code>, and <code>BROWSER_PUSH_VAPID_SUBJECT</code> in the server environment; environment values take precedence.</p>
-    </div>
-    <button type="submit" class="push-btn primary" style="width:100%;justify-content:center;padding:.75rem">
-      <?= svg_ico('save') ?> Save Settings
-    </button>
-  </form>
+  <div class="push-settings-grid">
+    <form method="POST" class="push-panel push-form">
+      <input type="hidden" name="csrf_token" value="<?= e($csrf) ?>">
+      <div class="push-form__head">
+        <span class="push-form__step">Credentials</span>
+        <h3>VAPID configuration</h3>
+        <p>Keep one key pair for the lifetime of existing subscriptions.</p>
+      </div>
+      <div class="push-field">
+        <label for="vapid-public">VAPID Public Key</label>
+        <input id="vapid-public" class="push-input push-input--code" type="text" name="vapid_public_key" maxlength="128" placeholder="Base64url public key from web-push" value="<?= e($settings['push_vapid_public_key'] ?? '') ?>">
+        <small>Shared with browsers when readers subscribe.</small>
+      </div>
+      <div class="push-field">
+        <div class="push-field__label"><label for="vapid-private">VAPID Private Key</label><?php if ($privateConfigured): ?><span class="push-badge push-badge--success">Configured</span><?php endif; ?></div>
+        <input id="vapid-private" class="push-input push-input--code" type="password" name="vapid_private_key" maxlength="128" autocomplete="new-password" placeholder="<?= $privateConfigured ? 'Configured; leave blank to keep it' : 'Base64url private key from web-push' ?>" value="">
+        <small>The saved private key is never rendered back into this page.</small>
+      </div>
+      <div class="push-field">
+        <label for="vapid-subject">VAPID Subject</label>
+        <input id="vapid-subject" class="push-input" type="text" name="vapid_subject" maxlength="255" placeholder="mailto:admin@example.com" value="<?= e($settings['push_vapid_subject'] ?? 'mailto:admin@example.com') ?>">
+        <small>Use a monitored <code>mailto:</code> address or an HTTPS URL.</small>
+      </div>
+      <button type="submit" class="push-btn push-btn--primary push-btn--submit"><?= svg_ico('save') ?> Save Settings</button>
+    </form>
+
+    <aside class="push-settings-aside">
+      <section class="push-info-card">
+        <span class="push-info-card__icon" aria-hidden="true"><?= svg_ico('lock') ?></span>
+        <div><span class="push-eyebrow">Key status</span><h3><?= $privateConfigured ? 'Private key configured' : 'Private key needed' ?></h3><p><?= $privateConfigured ? 'A private key value is available from the environment or saved settings.' : 'Add a valid private key before sending notifications.' ?></p></div>
+      </section>
+      <section class="push-info-card push-info-card--plain">
+        <span class="push-info-card__icon" aria-hidden="true"><?= svg_ico('bell') ?></span>
+        <div><span class="push-eyebrow">Notification icon</span><code class="push-code-path"><?= e($pwaIcon) ?></code><p>Browser Push uses the PWA icon and falls back to its bundled PNG.</p></div>
+      </section>
+      <section class="push-command-card">
+        <span class="push-eyebrow">Generate a key pair</span>
+        <code>php plugins/browser-push/generate-vapid.php</code>
+        <p>Environment values take precedence over saved settings.</p>
+      </section>
+    </aside>
+  </div>
 </div>

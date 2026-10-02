@@ -34,46 +34,61 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 }
 ?>
 
-<div style="padding:1.5rem;max-width:600px">
-  <div style="margin-bottom:1.5rem">
-    <a href="<?= e($base) ?>/?page=admin/tools/push-notifications" style="color:var(--muted);text-decoration:none;font-size:.875rem">&larr; Back to Push Notifications</a>
-    <h2 style="margin:.5rem 0 0">Send Notification</h2>
-  </div>
+<div class="push-admin push-admin--narrow">
+  <header class="push-page-head">
+    <a href="<?= e($base) ?>/?page=admin/tools/push-notifications" class="push-back"><?= svg_ico('arrow-left') ?> <span>Push Notifications</span></a>
+    <span class="push-eyebrow">New broadcast</span>
+    <h2>Send Notification</h2>
+    <p>Write one concise message for every active browser subscriber.</p>
+  </header>
 
   <?php if ($success): ?>
-    <div style="background:#16a34a20;border:1px solid #16a34a40;border-radius:var(--radius-md);padding:1rem;margin-bottom:1rem;color:#16a34a"><?= e($success) ?></div>
+    <div class="push-notice push-notice--success" role="status"><span class="push-notice__icon" aria-hidden="true"><?= svg_ico('lock') ?></span><div><strong>Delivery complete</strong><span><?= e($success) ?></span></div></div>
   <?php endif; ?>
   <?php if ($error): ?>
-    <div style="background:#dc262620;border:1px solid #dc262640;border-radius:var(--radius-md);padding:1rem;margin-bottom:1rem;color:#dc2626"><?= e($error) ?></div>
+    <div class="push-notice push-notice--danger" role="alert"><span class="push-notice__icon" aria-hidden="true"><?= svg_ico('zap') ?></span><div><strong>Delivery not completed</strong><span><?= e($error) ?></span></div></div>
   <?php endif; ?>
 
-  <form method="POST" style="display:flex;flex-direction:column;gap:1rem">
-    <input type="hidden" name="csrf_token" value="<?= e($csrf) ?>">
-    <div>
-      <label style="display:block;font-weight:600;margin-bottom:.25rem">Title *</label>
-      <input type="text" name="title" required maxlength="<?= JYAVANI_PUSH_MAX_TITLE ?>" placeholder="Artikel baru terbit!"
-        style="width:100%;padding:.5rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text)"
-        value="<?= e($values['title']) ?>">
-    </div>
-    <div>
-      <label style="display:block;font-weight:600;margin-bottom:.25rem">Body *</label>
-      <textarea name="body" required maxlength="<?= JYAVANI_PUSH_MAX_BODY ?>" rows="3" placeholder="Cek artikel terbaru di website kamu..."
-        style="width:100%;padding:.5rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text)"><?= e($values['body']) ?></textarea>
-    </div>
-    <div>
-      <label style="display:block;font-weight:600;margin-bottom:.25rem">URL (optional)</label>
-      <input type="text" name="url" maxlength="<?= JYAVANI_PUSH_MAX_URL ?>" placeholder="/artikel-baru/"
-        style="width:100%;padding:.5rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text)"
-        value="<?= e($values['url']) ?>">
-    </div>
-    <div>
-      <label style="display:block;font-weight:600;margin-bottom:.25rem">Icon URL (optional)</label>
-      <input type="text" name="icon" maxlength="<?= JYAVANI_PUSH_MAX_ICON ?>" placeholder="Uses the PWA icon by default"
-        style="width:100%;padding:.5rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text)"
-        value="<?= e($values['icon']) ?>">
-    </div>
-    <button type="submit" class="push-btn primary" style="width:100%;justify-content:center;padding:.75rem">
-      <?= svg_ico('send') ?> Send to All Subscribers
-    </button>
-  </form>
+  <div class="push-compose-grid">
+    <form method="POST" class="push-panel push-form">
+      <input type="hidden" name="csrf_token" value="<?= e($csrf) ?>">
+      <div class="push-form__head">
+        <span class="push-form__step">Message</span>
+        <h3>Notification content</h3>
+        <p>Keep the title recognizable and the body useful at a glance.</p>
+      </div>
+      <div class="push-field">
+        <div class="push-field__label"><label for="push-title">Title <span aria-hidden="true">*</span></label><span>Max <?= JYAVANI_PUSH_MAX_TITLE ?></span></div>
+        <input id="push-title" class="push-input" type="text" name="title" required maxlength="<?= JYAVANI_PUSH_MAX_TITLE ?>" placeholder="Artikel baru terbit!" value="<?= e($values['title']) ?>">
+      </div>
+      <div class="push-field">
+        <div class="push-field__label"><label for="push-body">Body <span aria-hidden="true">*</span></label><span>Max <?= JYAVANI_PUSH_MAX_BODY ?></span></div>
+        <textarea id="push-body" class="push-input push-textarea" name="body" required maxlength="<?= JYAVANI_PUSH_MAX_BODY ?>" rows="4" placeholder="Cek artikel terbaru di website kamu..."><?= e($values['body']) ?></textarea>
+      </div>
+      <div class="push-field">
+        <label for="push-url">Open URL <span class="push-optional">Optional</span></label>
+        <input id="push-url" class="push-input" type="text" name="url" maxlength="<?= JYAVANI_PUSH_MAX_URL ?>" placeholder="/artikel-baru/" value="<?= e($values['url']) ?>">
+        <small>Use a same-site path beginning with <code>/</code>, such as <code>/article/</code>.</small>
+      </div>
+      <div class="push-field">
+        <label for="push-icon">Icon URL <span class="push-optional">Optional</span></label>
+        <input id="push-icon" class="push-input" type="text" name="icon" maxlength="<?= JYAVANI_PUSH_MAX_ICON ?>" placeholder="Uses the PWA icon by default" value="<?= e($values['icon']) ?>">
+        <small>Leave blank to use the configured PWA icon.</small>
+      </div>
+      <button type="submit" class="push-btn push-btn--primary push-btn--submit"><?= svg_ico('bell') ?> Send to All Subscribers</button>
+    </form>
+
+    <aside class="push-compose-aside" aria-label="Notification preview">
+      <div class="push-preview-label"><span class="push-eyebrow">Example preview</span></div>
+      <div class="push-preview">
+        <span class="push-preview__icon" aria-hidden="true"><?= svg_ico('bell') ?></span>
+        <div>
+          <strong><?= e($values['title'] !== '' ? $values['title'] : 'Your notification title') ?></strong>
+          <p><?= e($values['body'] !== '' ? $values['body'] : 'Your message will appear here on supported devices.') ?></p>
+          <span><?= e($values['url'] !== '' ? $values['url'] : 'Opens your site') ?></span>
+        </div>
+      </div>
+      <p class="push-compose-note">The exact appearance depends on the reader's browser and operating system.</p>
+    </aside>
+  </div>
 </div>
