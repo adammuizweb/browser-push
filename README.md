@@ -1,10 +1,10 @@
 # Browser Push
 
-Browser Push 1.2.5 provides VAPID Web Push notifications for Jyavani CMS. The PWA plugin owns the root service worker and its lifecycle; Browser Push eagerly invokes that worker's idempotent registration and appends only push, notification-click, and subscription-refresh handlers. Production Node dependencies are vendored in the release so runtime installation remains byte-identical to its Store manifest.
+Browser Push 1.3.0 provides VAPID Web Push notifications for Jyavani CMS. The PWA plugin owns the root service worker and its lifecycle; Browser Push eagerly invokes that worker's idempotent registration and appends only push, notification-click, and subscription-refresh handlers. Production Node dependencies are vendored in the release so runtime installation remains byte-identical to its Store manifest.
 
 ## Requirements
 
-- Jyavani 2.3.74 or newer
+- Jyavani 2.3.192 or newer
 - PWA plugin 1.0.0 or newer, active and configured
 - PHP 8.1+ with PDO, JSON, and OpenSSL
 - Node.js 16+ and npm
@@ -85,6 +85,12 @@ Send payload:
 Titles, bodies, and URLs have server-side scalar and size limits. Responses use pure JSON. `ok` is false when there are no subscribers or any delivery fails, and HTTP 404/410 push responses deactivate the stale subscription.
 
 Broadcast delivery is synchronous and starts one bounded Node.js process per active subscription. VAPID/settings and notification defaults are loaded once per broadcast, but large subscriber sets still scale linearly and can exceed a web request budget. Use a queue/worker integration before operating at high volume.
+
+## Automatic Article Notifications
+
+Enable **Notify once per Article** under Push Notification Settings to broadcast an Article's title, canonical permalink, and site title when its stored status changes to `published`. Jyavani Core emits the isolated post-commit event for direct creation, editor publication, bulk status changes, status Undo, and scheduled publication.
+
+The feature is off by default. Enabling it baselines Articles that are already published, and publication events observed while it is off are retained as skipped. A durable per-Article ledger allows only one automatic attempt, so editing, unpublishing, republishing, or receiving the same event twice does not send another notification. Core does not retain an authoritative publication timestamp for an Article that is currently draft or private, so an older Article in either state can receive its one automatic attempt if it is later published. Delivery results are terminal, including partial, interrupted, and failed delivery; automatic retries are intentionally disabled because Web Push cannot atomically prove which subscribers received a partially completed broadcast.
 
 ## Development Checks
 

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 /**
- * Browser Push Notifications Plugin v1.2.5.
+ * Browser Push Notifications Plugin v1.3.0.
  */
 
 if (!defined('BACKEND_PATH')) return;
@@ -139,6 +139,26 @@ function jyavani_push_settings(PDO $pdo): array {
 function jyavani_push_save_setting(PDO $pdo, string $key, string $value): void {
     $stmt = $pdo->prepare("INSERT INTO settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)");
     $stmt->execute([$key, $value]);
+}
+
+function jyavani_push_translate(string $source): string {
+    return function_exists('__') ? __($source, 'browser-push') : $source;
+}
+
+function jyavani_push_auto_notify_articles(PDO $pdo): bool {
+    return jyavani_push_setting($pdo, 'push_auto_notify_articles', '0') === '1';
+}
+
+function jyavani_push_baseline_published_articles(PDO $pdo): int {
+    $statement = $pdo->prepare(
+        "INSERT IGNORE INTO push_article_publications
+            (article_id, event_id, status_revision, state, sent_count, fail_count, total_count, error, claimed_at_utc, finished_at_utc)
+         SELECT id, NULL, status_revision, 'baseline', 0, 0, 0, NULL, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6)
+         FROM posts
+         WHERE type = 'article' AND status = 'published' AND is_deleted = 0"
+    );
+    $statement->execute();
+    return $statement->rowCount();
 }
 
 function jyavani_push_env(string $name): string {
@@ -302,6 +322,168 @@ function jyavani_push_payload(array $input): array {
     if (!jyavani_push_valid_navigation_url($url)) throw new InvalidArgumentException('url must be a same-origin absolute path');
     if ($icon !== '' && !jyavani_push_valid_asset_url($icon)) throw new InvalidArgumentException('icon is invalid');
     return compact('title', 'body', 'url', 'icon');
+}
+
+function jyavani_push_limit_text(string $value, int $maxBytes): string {
+    $value = trim($value);
+    return strlen($value) <= $maxBytes ? $value : rtrim(mb_strcut($value, 0, $maxBytes, 'UTF-8'));
+}
+
+function jyavani_push_article_payload(PDO $pdo, int $articleId): array {
+    $statement = $pdo->prepare(
+        "SELECT id, title, slug, created_at
+         FROM posts
+         WHERE id = :id AND type = 'article' AND status = 'published' AND is_deleted = 0
+         LIMIT 1"
+    );
+    $statement->execute([':id' => $articleId]);
+    $article = $statement->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($article)) throw new UnexpectedValueException('Published Article is no longer available.');
+
+    $title = jyavani_push_limit_text((string)($article['title'] ?? ''), JYAVANI_PUSH_MAX_TITLE);
+    if ($title === '') throw new UnexpectedValueException('Published Article has no notification title.');
+    $siteTitle = function_exists('settings_get')
+        ? (string)(settings_get($pdo, 'site_title', 'Jyavani') ?? 'Jyavani')
+        : jyavani_push_setting($pdo, 'site_title', 'Jyavani');
+    $body = jyavani_push_limit_text($siteTitle !== '' ? $siteTitle : 'Jyavani', JYAVANI_PUSH_MAX_BODY);
+    $url = function_exists('get_post_permalink')
+        ? (string)get_post_permalink($article)
+        : '/' . rawurlencode((string)($article['slug'] ?? '')) . '/';
+    if (!jyavani_push_valid_navigation_url($url)) {
+        $url = '/' . rawurlencode((string)($article['slug'] ?? '')) . '/';
+    }
+    if (!jyavani_push_valid_navigation_url($url)) $url = '/';
+
+    return jyavani_push_payload([
+        'title' => $title,
+        'body' => $body,
+        'url' => $url,
+        'icon' => '',
+    ]);
+}
+
+function jyavani_push_claim_article_publication(PDO $pdo, array $event, bool $enabled): bool {
+    $statement = $pdo->prepare(
+        'INSERT INTO push_article_publications
+            (article_id, event_id, status_revision, state, sent_count, fail_count, total_count, error, claimed_at_utc, finished_at_utc)
+         VALUES (:article_id, :event_id, :status_revision, :state, 0, 0, 0, NULL, UTC_TIMESTAMP(6), :finished_at_utc)'
+    );
+    try {
+        $statement->execute([
+            ':article_id' => (int)$event['content_id'],
+            ':event_id' => (string)$event['event_id'],
+            ':status_revision' => (int)$event['status_revision'],
+            ':state' => $enabled ? 'claimed' : 'disabled',
+            ':finished_at_utc' => $enabled ? null : gmdate('Y-m-d H:i:s.u'),
+        ]);
+    } catch (PDOException $error) {
+        if (str_starts_with((string)$error->getCode(), '23')) return false;
+        throw $error;
+    }
+    return true;
+}
+
+function jyavani_push_finish_article_publication(
+    PDO $pdo,
+    int $articleId,
+    string $state,
+    int $sent = 0,
+    int $failed = 0,
+    int $total = 0,
+    ?string $error = null
+): void {
+    $error = $error !== null ? preg_replace('/[\x00-\x1F\x7F]+/', ' ', trim($error)) : null;
+    if (is_string($error) && strlen($error) > 500) $error = mb_strcut($error, 0, 500, 'UTF-8');
+    $statement = $pdo->prepare(
+        'UPDATE push_article_publications
+         SET state = :state, sent_count = :sent, fail_count = :failed, total_count = :total,
+             error = :error, finished_at_utc = UTC_TIMESTAMP(6)
+         WHERE article_id = :article_id AND state = \'claimed\''
+    );
+    $statement->execute([
+        ':state' => $state,
+        ':sent' => max(0, $sent),
+        ':failed' => max(0, $failed),
+        ':total' => max(0, $total),
+        ':error' => $error,
+        ':article_id' => $articleId,
+    ]);
+}
+
+function jyavani_push_article_delivery_state(array $result): string {
+    $sent = max(0, (int)($result['sent'] ?? 0));
+    $failed = max(0, (int)($result['failed'] ?? 0));
+    $total = max(0, (int)($result['total'] ?? 0));
+    if ($total === 0) return 'no_subscribers';
+    if ($failed === 0 && $sent === $total) return 'delivered';
+    return $sent > 0 ? 'partial' : 'failed';
+}
+
+function jyavani_push_valid_content_published_event(array $event): bool {
+    $keys = [
+        'schema', 'event_id', 'occurred_at', 'content_type', 'content_id',
+        'actor_id', 'source', 'previous_status', 'status_revision',
+    ];
+    $eventKeys = array_keys($event);
+    return count($eventKeys) === count($keys)
+        && array_diff($eventKeys, $keys) === []
+        && ($event['schema'] ?? null) === 1
+        && is_string($event['event_id'] ?? null)
+        && preg_match('/\A[a-f0-9]{64}\z/D', $event['event_id']) === 1
+        && is_string($event['occurred_at'] ?? null)
+        && preg_match('/\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\z/D', $event['occurred_at']) === 1
+        && ($event['content_type'] ?? null) === 'article'
+        && is_int($event['content_id'] ?? null)
+        && $event['content_id'] > 0
+        && (is_int($event['actor_id'] ?? null) || ($event['actor_id'] ?? null) === null)
+        && (!is_int($event['actor_id'] ?? null) || $event['actor_id'] > 0)
+        && is_string($event['source'] ?? null)
+        && preg_match('/\A[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*\z/D', $event['source']) === 1
+        && in_array($event['previous_status'] ?? null, [null, 'draft', 'private'], true)
+        && is_int($event['status_revision'] ?? null)
+        && $event['status_revision'] >= 0;
+}
+
+function jyavani_push_handle_content_published(array $event, PDO $pdo): void {
+    if (!jyavani_push_valid_content_published_event($event)) return;
+
+    $articleId = $event['content_id'];
+    $finished = false;
+    try {
+        $enabled = jyavani_push_auto_notify_articles($pdo);
+        if (!jyavani_push_claim_article_publication($pdo, $event, $enabled) || !$enabled) return;
+        register_shutdown_function(static function () use ($pdo, $articleId, &$finished): void {
+            if ($finished) return;
+            $lastError = error_get_last();
+            $message = is_array($lastError) && is_string($lastError['message'] ?? null)
+                ? 'Automatic delivery interrupted: ' . $lastError['message']
+                : 'Automatic delivery interrupted before completion.';
+            try {
+                jyavani_push_finish_article_publication($pdo, $articleId, 'interrupted', 0, 0, 0, $message);
+            } catch (Throwable $error) {
+                error_log('[browser-push] Unable to finalize an interrupted Article notification: ' . $error->getMessage());
+            }
+        });
+        $payload = jyavani_push_article_payload($pdo, $articleId);
+        $result = jyavani_push_broadcast($pdo, $payload['title'], $payload['body'], $payload['url'], $payload['icon']);
+        jyavani_push_finish_article_publication(
+            $pdo,
+            $articleId,
+            jyavani_push_article_delivery_state($result),
+            (int)($result['sent'] ?? 0),
+            (int)($result['failed'] ?? 0),
+            (int)($result['total'] ?? 0)
+        );
+        $finished = true;
+    } catch (Throwable $error) {
+        try {
+            jyavani_push_finish_article_publication($pdo, $articleId, 'failed', 0, 0, 0, $error->getMessage());
+            $finished = true;
+        } catch (Throwable $finishError) {
+            error_log('[browser-push] Unable to record automatic Article notification failure: ' . $finishError->getMessage());
+        }
+        error_log('[browser-push] Automatic Article notification failed: ' . $error->getMessage());
+    }
 }
 
 function jyavani_push_csrf_valid(mixed $token): bool {
@@ -478,9 +660,14 @@ function jyavani_push_broadcast(PDO $pdo, string $title, string $body, string $u
         if (jyavani_push_send($subscription, $title, $body, $url, $icon, $pdo, $delivery)) $sent++;
         else $failed++;
     }
-    $stmt = $pdo->prepare('INSERT INTO push_notifications (title, body, url, icon, sent_count, fail_count, sent_at) VALUES (?, ?, ?, ?, ?, ?, NOW())');
-    $stmt->execute([$title, $body, $url, $icon, $sent, $failed]);
-    return ['sent' => $sent, 'failed' => $failed, 'total' => count($subscriptions)];
+    $result = ['sent' => $sent, 'failed' => $failed, 'total' => count($subscriptions)];
+    try {
+        $stmt = $pdo->prepare('INSERT INTO push_notifications (title, body, url, icon, sent_count, fail_count, sent_at) VALUES (?, ?, ?, ?, ?, ?, NOW())');
+        $stmt->execute([$title, $body, $url, $icon, $sent, $failed]);
+    } catch (Throwable $error) {
+        error_log('[browser-push] Delivery completed but notification history could not be recorded: ' . $error->getMessage());
+    }
+    return $result;
 }
 
 if (php_sapi_name() !== 'cli') {
@@ -493,6 +680,7 @@ if (function_exists('register_frontend_route')) {
 }
 
 if (function_exists('add_action')) {
+    add_action('content_status_published', 'jyavani_push_handle_content_published');
     add_action('init', function (): void {
         add_action('jy_head', function (): void {
             echo '<script>(function(){if(!("serviceWorker" in navigator))return;'
@@ -547,7 +735,7 @@ function jyavani_push_render_subscribe_widget(PDO $pdo, array $config): string {
     $html .= '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
     $html .= '<span class="js-push-button-text">Subscribe</span></button></div>';
     if (!$clientLoaded) {
-        $html .= '<script src="/static/plugins/browser-push/push.js?v=1.2.5" defer></script>';
+        $html .= '<script src="/static/plugins/browser-push/push.js?v=1.3.0" defer></script>';
         $clientLoaded = true;
     }
     return $html;

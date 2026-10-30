@@ -1,4 +1,4 @@
-/* Jyavani Browser Push service-worker handlers v1.2.5 */
+/* Jyavani Browser Push service-worker handlers v1.3.0 */
 (function () {
   'use strict';
 

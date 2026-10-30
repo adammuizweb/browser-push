@@ -25,17 +25,30 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             ? filter_var(substr($subject, 7), FILTER_VALIDATE_EMAIL) !== false
             : filter_var($subject, FILTER_VALIDATE_URL) !== false && str_starts_with(strtolower($subject), 'https://');
         if (!$validSubject) throw new InvalidArgumentException('VAPID subject must be a valid mailto: address or HTTPS URL.');
+        $autoNotifyArticles = isset($_POST['auto_notify_articles']) ? '1' : '0';
+        $wasAutoNotifyEnabled = ($settings['push_auto_notify_articles'] ?? '0') === '1';
+        $pdo->beginTransaction();
         jyavani_push_save_setting($pdo, 'push_vapid_public_key', $publicKey);
         if ($privateKey !== '') jyavani_push_save_setting($pdo, 'push_vapid_private_key', $privateKey);
         jyavani_push_save_setting($pdo, 'push_vapid_subject', $subject);
+        if (!$wasAutoNotifyEnabled && $autoNotifyArticles === '1') {
+            jyavani_push_baseline_published_articles($pdo);
+        }
+        jyavani_push_save_setting($pdo, 'push_auto_notify_articles', $autoNotifyArticles);
+        $pdo->commit();
         $success = 'Settings saved.';
-        $settings = jyavani_push_settings($pdo);
+        $settings['push_vapid_public_key'] = $publicKey;
+        if ($privateKey !== '') $settings['push_vapid_private_key'] = $privateKey;
+        $settings['push_vapid_subject'] = $subject;
+        $settings['push_auto_notify_articles'] = $autoNotifyArticles;
     } catch (InvalidArgumentException|RuntimeException $exception) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
         $error = $exception->getMessage();
     }
 }
 
 $privateConfigured = jyavani_push_env('BROWSER_PUSH_VAPID_PRIVATE_KEY') !== '' || ($settings['push_vapid_private_key'] ?? '') !== '';
+$autoNotifyArticles = ($settings['push_auto_notify_articles'] ?? '0') === '1';
 $pwaIcon = jyavani_push_notification_icon($settings);
 ?>
 
@@ -76,6 +89,19 @@ $pwaIcon = jyavani_push_notification_icon($settings);
         <label for="vapid-subject">VAPID Subject</label>
         <input id="vapid-subject" class="push-input" type="text" name="vapid_subject" maxlength="255" placeholder="mailto:admin@example.com" value="<?= e($settings['push_vapid_subject'] ?? 'mailto:admin@example.com') ?>">
         <small>Use a monitored <code>mailto:</code> address or an HTTPS URL.</small>
+      </div>
+      <div class="push-automation">
+        <div class="push-automation__copy">
+          <span class="push-form__step"><?= e(jyavani_push_translate('Article automation')) ?></span>
+          <h3><?= e(jyavani_push_translate('Notify once per Article')) ?></h3>
+          <p><?= e(jyavani_push_translate('Send the Article title and canonical link when an Article reaches Published. Each Article gets at most one automatic attempt.')) ?></p>
+        </div>
+        <label class="push-switch" for="auto-notify-articles">
+          <input id="auto-notify-articles" type="checkbox" name="auto_notify_articles" value="1" <?= $autoNotifyArticles ? 'checked' : '' ?>>
+          <span class="push-switch__track" aria-hidden="true"><span></span></span>
+          <span class="push-switch__label"><span class="push-switch__off"><?= e(jyavani_push_translate('Off')) ?></span><span class="push-switch__on"><?= e(jyavani_push_translate('On')) ?></span></span>
+        </label>
+        <small><?= e(jyavani_push_translate('Existing published Articles are marked as already seen when this is enabled. Delivery is synchronous and is not retried automatically.')) ?></small>
       </div>
       <button type="submit" class="push-btn push-btn--primary push-btn--submit"><?= svg_ico('save') ?> Save Settings</button>
     </form>
